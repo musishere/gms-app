@@ -1,16 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuthUser } from '@/lib/auth';
-import { getDb } from '@/lib/db';
-import { ensureDataDir } from '@/lib/ensureData';
+import { createSupabaseClient } from '@/lib/supabase';
+import { getSupabaseAdmin } from '@/lib/supabase-admin';
 
 export async function GET(req: NextRequest) {
   try {
-    ensureDataDir();
-    const auth = await getAuthUser(req);
-    if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    const db = await getDb();
-    const user = db.data.users.find(u => u.id === auth.id);
-    if (!user) return NextResponse.json({ error: 'Not found' }, { status: 404 });
-    return NextResponse.json({ user: { id: user.id, name: user.name, email: user.email, role: user.role, phone: user.phone, cnic: user.cnic, address: user.address } });
+    const { supabase, cookiesToSet } = createSupabaseClient(req);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+    const { data: profile } = await getSupabaseAdmin()
+      .from('profiles')
+      .select('name, role, phone, cnic, address')
+      .eq('id', user.id)
+      .single();
+
+    const res = NextResponse.json({
+      user: { id: user.id, name: profile?.name, email: user.email, role: profile?.role, phone: profile?.phone, cnic: profile?.cnic, address: profile?.address },
+    });
+    cookiesToSet.forEach(({ name, value, options }) => res.cookies.set(name, value, options as never));
+    return res;
   } catch { return NextResponse.json({ error: 'Server error' }, { status: 500 }); }
 }

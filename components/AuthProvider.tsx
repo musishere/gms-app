@@ -24,12 +24,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const r = await fetch('/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password }) });
     const d = await r.json();
     if (!r.ok) throw new Error(d.error || 'Login failed');
-    setUser(d.user); router.push('/dashboard');
+    setUser(d.user);
+    router.push('/dashboard');
   };
 
   const logout = async () => {
     await fetch('/api/auth/logout', { method: 'POST' });
-    setUser(null); router.push('/login');
+    setUser(null);
+    router.push('/login');
   };
 
   return <Ctx.Provider value={{ user, loading, login, logout, refreshUser }}>{children}</Ctx.Provider>;

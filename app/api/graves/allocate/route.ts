@@ -1,26 +1,35 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthUser } from '@/lib/auth';
-import { getDb } from '@/lib/db';
-import { ensureDataDir } from '@/lib/ensureData';
+import { getSupabaseAdmin } from '@/lib/supabase-admin';
+import { GRAVE_COLS } from '@/lib/supabase';
 
 export async function POST(req: NextRequest) {
   try {
-    ensureDataDir();
     const auth = await getAuthUser(req);
     if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    const { size, section, religion } = await req.json();
-    const db = await getDb();
-    let candidates = db.data.graves.filter(g => g.status === 'available');
-    if (size) candidates = candidates.filter(g => g.size === size);
-    if (section) candidates = candidates.filter(g => g.section === section);
-    if (candidates.length === 0) return NextResponse.json({ error: 'No available graves matching criteria' }, { status: 404 });
-    // Sort: prefer lower-numbered graves for orderly allocation
-    candidates.sort((a, b) => {
-      if (a.section !== b.section) return a.section.localeCompare(b.section);
-      if (a.row !== b.row) return a.row - b.row;
-      return a.column - b.column;
+
+    const { size, section } = await req.json();
+    const admin = getSupabaseAdmin();
+
+    let query = admin.from('graves').select(GRAVE_COLS).eq('status', 'available');
+    if (size) query = query.eq('size', size);
+    if (section) query = query.eq('section', section);
+
+    const { data: candidates, error } = await query;
+    if (error) throw error;
+    if (!candidates || candidates.length === 0)
+      return NextResponse.json({ error: 'No available graves matching criteria' }, { status: 404 });
+
+    candidates.sort((a: Record<string, unknown>, b: Record<string, unknown>) => {
+      if (a.section !== b.section) return String(a.section).localeCompare(String(b.section));
+      if (a.row !== b.row) return Number(a.row) - Number(b.row);
+      return Number(a.column) - Number(b.column);
     });
+
     const allocated = candidates[0];
-    return NextResponse.json({ grave: allocated, message: `Grave ${allocated.graveNumber} auto-allocated in section ${allocated.section}` });
+    return NextResponse.json({
+      grave: allocated,
+      message: `Grave ${allocated.graveNumber} auto-allocated in section ${allocated.section}`,
+    });
   } catch { return NextResponse.json({ error: 'Server error' }, { status: 500 }); }
 }

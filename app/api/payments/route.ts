@@ -1,48 +1,62 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthUser } from '@/lib/auth';
-import { getDb } from '@/lib/db';
-import { ensureDataDir } from '@/lib/ensureData';
+import { getSupabaseAdmin } from '@/lib/supabase-admin';
+import { BURIAL_COLS, GRAVE_COLS, PAYMENT_COLS } from '@/lib/supabase';
 
 export async function GET(req: NextRequest) {
   try {
-    ensureDataDir();
     const auth = await getAuthUser(req);
     if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
     const { searchParams } = new URL(req.url);
     const status = searchParams.get('status');
     const month = searchParams.get('month');
-    const db = await getDb();
-    let payments = db.data.payments;
-    if (auth.role === 'family') payments = payments.filter(p => p.userId === auth.id);
-    if (status) payments = payments.filter(p => p.status === status);
-    if (month) payments = payments.filter(p => p.createdAt.startsWith(month));
-    // Enrich
-    const enriched = payments.map(p => {
-      const burial = db.data.burials.find(b => b.id === p.burialId);
-      const grave = db.data.graves.find(g => g.id === p.graveId);
+
+    const admin = getSupabaseAdmin();
+    let query = admin.from('payments').select(PAYMENT_COLS).order('created_at', { ascending: false });
+    if (auth.role === 'family') query = query.eq('user_id', auth.id);
+    if (status) query = query.eq('status', status);
+    if (month) query = query.like('created_at', `${month}%`);
+
+    const { data: payments, error } = await query;
+    if (error) throw error;
+
+    const enriched = await Promise.all((payments ?? []).map(async (p: Record<string, unknown>) => {
+      const [{ data: burial }, { data: grave }] = await Promise.all([
+        admin.from('burials').select(BURIAL_COLS).eq('id', p.burialId).maybeSingle(),
+        admin.from('graves').select(GRAVE_COLS).eq('id', p.graveId).maybeSingle(),
+      ]);
       return { ...p, burial, grave };
-    }).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-    // Revenue stats
-    const totalRevenue = db.data.payments.filter(p => p.status === 'paid').reduce((s, p) => s + p.amount, 0);
-    const pendingRevenue = db.data.payments.filter(p => p.status === 'pending').reduce((s, p) => s + p.amount, 0);
+    }));
+
+    // Revenue stats (all payments, ignore filters)
+    const { data: allPaid } = await admin.from('payments').select('amount, status');
+    const totalRevenue = allPaid?.filter(p => p.status === 'paid').reduce((s, p) => s + Number(p.amount), 0) ?? 0;
+    const pendingRevenue = allPaid?.filter(p => p.status === 'pending').reduce((s, p) => s + Number(p.amount), 0) ?? 0;
+
     return NextResponse.json({ payments: enriched, totalRevenue, pendingRevenue });
   } catch { return NextResponse.json({ error: 'Server error' }, { status: 500 }); }
 }
 
 export async function PATCH(req: NextRequest) {
   try {
-    ensureDataDir();
     const auth = await getAuthUser(req);
     if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
     const { id, status, transactionRef, method } = await req.json();
-    const db = await getDb();
-    const idx = db.data.payments.findIndex(p => p.id === id);
-    if (idx === -1) return NextResponse.json({ error: 'Not found' }, { status: 404 });
-    db.data.payments[idx].status = status;
-    if (transactionRef) db.data.payments[idx].transactionRef = transactionRef;
-    if (method) db.data.payments[idx].method = method;
-    if (status === 'paid') db.data.payments[idx].paidAt = new Date().toISOString();
-    await db.write();
-    return NextResponse.json({ payment: db.data.payments[idx] });
+    const updates: Record<string, unknown> = { status };
+    if (transactionRef) updates.transaction_ref = transactionRef;
+    if (method) updates.method = method;
+    if (status === 'paid') updates.paid_at = new Date().toISOString();
+
+    const { data: payment, error } = await getSupabaseAdmin()
+      .from('payments')
+      .update(updates)
+      .eq('id', id)
+      .select(PAYMENT_COLS)
+      .single();
+
+    if (error) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    return NextResponse.json({ payment });
   } catch { return NextResponse.json({ error: 'Server error' }, { status: 500 }); }
 }

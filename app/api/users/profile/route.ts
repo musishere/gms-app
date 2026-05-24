@@ -1,23 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthUser } from '@/lib/auth';
-import { getDb } from '@/lib/db';
-import { ensureDataDir } from '@/lib/ensureData';
+import { getSupabaseAdmin } from '@/lib/supabase-admin';
 
 export async function PUT(req: NextRequest) {
   try {
-    ensureDataDir();
     const auth = await getAuthUser(req);
     if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
     const { name, phone, address } = await req.json();
-    const db = await getDb();
-    const idx = db.data.users.findIndex(u => u.id === auth.id);
-    if (idx === -1) return NextResponse.json({ error: 'Not found' }, { status: 404 });
-    if (name) db.data.users[idx].name = name;
-    if (phone !== undefined) db.data.users[idx].phone = phone;
-    if (address !== undefined) db.data.users[idx].address = address;
-    db.data.users[idx].updatedAt = new Date().toISOString();
-    await db.write();
-    const u = db.data.users[idx];
-    return NextResponse.json({ user: { id: u.id, name: u.name, email: u.email, role: u.role, phone: u.phone, address: u.address } });
+    const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
+    if (name !== undefined) updates.name = name;
+    if (phone !== undefined) updates.phone = phone;
+    if (address !== undefined) updates.address = address;
+
+    const { data: profile, error } = await getSupabaseAdmin()
+      .from('profiles')
+      .update(updates)
+      .eq('id', auth.id)
+      .select('id, name, role, phone, cnic, address')
+      .single();
+
+    if (error) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    return NextResponse.json({
+      user: { id: auth.id, name: profile.name, email: auth.email, role: profile.role, phone: profile.phone, address: profile.address },
+    });
   } catch { return NextResponse.json({ error: 'Server error' }, { status: 500 }); }
 }

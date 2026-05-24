@@ -1,95 +1,106 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthUser } from '@/lib/auth';
-import { getDb } from '@/lib/db';
-import { ensureDataDir } from '@/lib/ensureData';
+import { getSupabaseAdmin } from '@/lib/supabase-admin';
+import { BURIAL_COLS, GRAVE_COLS, PAYMENT_COLS } from '@/lib/supabase';
 import { generateReceiptNumber } from '@/lib/utils';
 import { randomUUID } from 'crypto';
 
 export async function GET(req: NextRequest) {
   try {
-    ensureDataDir();
     const auth = await getAuthUser(req);
     if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
     const { searchParams } = new URL(req.url);
     const status = searchParams.get('status');
-    const month = searchParams.get('month'); // YYYY-MM
-    const db = await getDb();
-    let burials = db.data.burials;
-    // Family users only see their own
-    if (auth.role === 'family') burials = burials.filter(b => b.bookingUserId === auth.id);
-    if (status) burials = burials.filter(b => b.status === status);
-    if (month) burials = burials.filter(b => b.burialDate.startsWith(month));
-    burials = burials.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-    // Enrich with grave info
-    const enriched = burials.map(b => {
-      const grave = db.data.graves.find(g => g.id === b.graveId);
-      const payment = db.data.payments.find(p => p.burialId === b.id);
+    const month = searchParams.get('month');
+
+    const admin = getSupabaseAdmin();
+    let query = admin.from('burials').select(BURIAL_COLS).order('created_at', { ascending: false });
+    if (auth.role === 'family') query = query.eq('booking_user_id', auth.id);
+    if (status) query = query.eq('status', status);
+    if (month) query = query.like('burial_date', `${month}%`);
+
+    const { data: burials, error } = await query;
+    if (error) throw error;
+
+    // Enrich with grave and payment
+    const enriched = await Promise.all((burials ?? []).map(async (b: Record<string, unknown>) => {
+      const [{ data: grave }, { data: payment }] = await Promise.all([
+        admin.from('graves').select(GRAVE_COLS).eq('id', b.graveId).single(),
+        admin.from('payments').select(PAYMENT_COLS).eq('burial_id', b.id).maybeSingle(),
+      ]);
       return { ...b, grave, payment };
-    });
+    }));
+
     return NextResponse.json({ burials: enriched });
   } catch (e) { console.error(e); return NextResponse.json({ error: 'Server error' }, { status: 500 }); }
 }
 
 export async function POST(req: NextRequest) {
   try {
-    ensureDataDir();
     const auth = await getAuthUser(req);
     if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    const body = await req.json();
-    const { graveId, deceased, burialDate, burialTime, conductedBy, notes, paymentMethod, amount } = body;
-    if (!graveId || !deceased || !burialDate || !burialTime) return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
-    const db = await getDb();
-    const grave = db.data.graves.find(g => g.id === graveId);
-    if (!grave) return NextResponse.json({ error: 'Grave not found' }, { status: 404 });
-    if (grave.status !== 'available' && grave.status !== 'reserved') return NextResponse.json({ error: 'Grave not available' }, { status: 409 });
+
+    const { graveId, deceased, burialDate, burialTime, conductedBy, notes, paymentMethod, amount } = await req.json();
+    if (!graveId || !deceased || !burialDate || !burialTime)
+      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+
+    const admin = getSupabaseAdmin();
+
+    const { data: grave, error: graveErr } = await admin.from('graves').select(GRAVE_COLS).eq('id', graveId).single();
+    if (graveErr || !grave) return NextResponse.json({ error: 'Grave not found' }, { status: 404 });
+    if (!['available', 'reserved'].includes(String(grave.status)))
+      return NextResponse.json({ error: 'Grave not available' }, { status: 409 });
+
     const now = new Date().toISOString();
     const burialId = randomUUID();
-    // Create burial
-    const burial = {
+
+    // Insert burial
+    const { data: burial, error: burialErr } = await admin.from('burials').insert({
       id: burialId,
-      graveId,
+      grave_id: graveId,
       deceased: { id: randomUUID(), ...deceased },
-      burialDate,
-      burialTime,
-      conductedBy: conductedBy || '',
-      status: 'confirmed' as const,
+      burial_date: burialDate,
+      burial_time: burialTime,
+      conducted_by: conductedBy || '',
+      status: 'confirmed',
       notes: notes || '',
-      bookingUserId: auth.id,
-      createdAt: now,
-      updatedAt: now,
-    };
-    db.data.burials.push(burial);
+      booking_user_id: auth.id,
+      created_at: now,
+      updated_at: now,
+    }).select(BURIAL_COLS).single();
+    if (burialErr) throw burialErr;
+
     // Mark grave occupied
-    const gIdx = db.data.graves.findIndex(g => g.id === graveId);
-    db.data.graves[gIdx].status = 'occupied';
-    db.data.graves[gIdx].occupiedBy = deceased.name;
-    db.data.graves[gIdx].burialId = burialId;
-    // Create payment record
-    const paymentAmount = amount || grave.price;
-    const payment = {
+    await admin.from('graves').update({ status: 'occupied', occupied_by: deceased.name, burial_id: burialId }).eq('id', graveId);
+    const { data: updatedGrave } = await admin.from('graves').select(GRAVE_COLS).eq('id', graveId).single();
+
+    // Create payment
+    const paymentAmount = amount || (grave as Record<string, unknown>).price;
+    const { data: payment } = await admin.from('payments').insert({
       id: randomUUID(),
-      burialId,
-      graveId,
-      userId: auth.id,
+      burial_id: burialId,
+      grave_id: graveId,
+      user_id: auth.id,
       amount: paymentAmount,
-      method: (paymentMethod || 'cash') as any,
-      status: 'pending' as const,
-      receiptNumber: generateReceiptNumber(),
-      dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-      createdAt: now,
-    };
-    db.data.payments.push(payment);
+      method: paymentMethod || 'cash',
+      status: 'pending',
+      receipt_number: generateReceiptNumber(),
+      due_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+      created_at: now,
+    }).select(PAYMENT_COLS).single();
+
     // Notification
-    db.data.notifications.push({
+    await admin.from('notifications').insert({
       id: randomUUID(),
-      userId: auth.id,
+      user_id: auth.id,
       title: 'Burial Confirmed',
       message: `Burial of ${deceased.name} confirmed at grave ${grave.graveNumber} on ${burialDate} at ${burialTime}.`,
       type: 'success',
       read: false,
-      createdAt: now,
+      created_at: now,
     });
-    await db.write();
-    return NextResponse.json({ burial, payment, grave: db.data.graves[gIdx] });
+
+    return NextResponse.json({ burial, payment, grave: updatedGrave });
   } catch (e) { console.error(e); return NextResponse.json({ error: 'Server error' }, { status: 500 }); }
 }
