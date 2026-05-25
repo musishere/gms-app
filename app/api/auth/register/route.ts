@@ -16,7 +16,10 @@ export async function POST(req: NextRequest) {
     const { error: profileError } = await getSupabaseAdmin()
       .from('profiles')
       .insert({ id: data.user.id, name, role: role || 'family', phone: phone || '', cnic: cnic || '', address: address || '' });
-    if (profileError) return NextResponse.json({ error: 'Profile creation failed' }, { status: 500 });
+    if (profileError) {
+      console.error('Profile creation error:', profileError);
+      return NextResponse.json({ error: `Profile creation failed: ${profileError.message}` }, { status: 500 });
+    }
 
     const res = NextResponse.json({
       user: { id: data.user.id, name, email, role: role || 'family' },
