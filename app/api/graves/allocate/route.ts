@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAuthUser } from '@/lib/auth';
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
 import { GRAVE_COLS } from '@/lib/supabase';
+import { errorResponse } from '@/lib/error-handler';
 
 export async function POST(req: NextRequest) {
   try {
@@ -31,5 +32,5 @@ export async function POST(req: NextRequest) {
       grave: allocated,
       message: `Grave ${allocated.graveNumber} auto-allocated in section ${allocated.section}`,
     });
-  } catch { return NextResponse.json({ error: 'Server error' }, { status: 500 }); }
+  } catch (e) { return errorResponse('Failed to allocate grave', e); }
 }

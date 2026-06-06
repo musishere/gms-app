@@ -8,6 +8,7 @@ export type PaymentStatus = 'pending' | 'paid' | 'overdue' | 'waived';
 export type CertificateStatus = 'pending' | 'issued' | 'rejected';
 export type MaintenanceStatus = 'open' | 'in_progress' | 'resolved';
 export type MaintenancePriority = 'low' | 'medium' | 'high' | 'critical';
+export type BookingStatus = 'pending' | 'approved' | 'cancelled' | 'converted';
 
 export interface User {
   id: string;
@@ -113,6 +114,24 @@ export interface MaintenanceRequest {
   resolvedAt?: string;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface GraveBooking {
+  id: string;
+  graveId: string;
+  bookedBy: string;
+  slotDate: string;
+  slotTime: string;
+  deceasedName: string;
+  contactName: string;
+  contactPhone: string;
+  notes?: string;
+  status: BookingStatus;
+  approvedBy?: string;
+  approvedAt?: string;
+  expiresAt?: string;
+  createdAt: string;
+  grave?: import('./db').Grave;
 }
 
 export interface Notification {

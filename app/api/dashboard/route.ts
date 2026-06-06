@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAuthUser } from '@/lib/auth';
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
 import { BURIAL_COLS, GRAVE_COLS } from '@/lib/supabase';
+import { errorResponse } from '@/lib/error-handler';
 
 export async function GET(req: NextRequest) {
   try {
@@ -81,5 +82,5 @@ export async function GET(req: NextRequest) {
       totalBurials: allBurials?.length ?? 0,
       totalUsers: allUsers?.length ?? 0,
     });
-  } catch (e) { console.error(e); return NextResponse.json({ error: 'Server error' }, { status: 500 }); }
+  } catch (e) { return errorResponse('Failed to fetch dashboard data', e); }
 }

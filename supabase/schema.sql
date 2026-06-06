@@ -98,6 +98,24 @@ CREATE TABLE IF NOT EXISTS maintenance (
   updated_at   TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Grave Bookings (slot reservations prior to full burial records)
+CREATE TABLE IF NOT EXISTS grave_bookings (
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  grave_id      TEXT REFERENCES graves(id),
+  booked_by     UUID REFERENCES profiles(id),
+  slot_date     DATE NOT NULL,
+  slot_time     TEXT NOT NULL,
+  deceased_name TEXT NOT NULL,
+  contact_name  TEXT NOT NULL,
+  contact_phone TEXT NOT NULL,
+  notes         TEXT DEFAULT '',
+  status        TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','approved','cancelled','converted')),
+  approved_by   UUID REFERENCES profiles(id),
+  approved_at   TIMESTAMPTZ,
+  expires_at    TIMESTAMPTZ,
+  created_at    TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- Notifications
 CREATE TABLE IF NOT EXISTS notifications (
   id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -110,13 +128,14 @@ CREATE TABLE IF NOT EXISTS notifications (
 );
 
 -- ─── Row-Level Security ───────────────────────────────────────────────────────
-ALTER TABLE profiles      ENABLE ROW LEVEL SECURITY;
-ALTER TABLE graves         ENABLE ROW LEVEL SECURITY;
-ALTER TABLE burials        ENABLE ROW LEVEL SECURITY;
-ALTER TABLE payments       ENABLE ROW LEVEL SECURITY;
-ALTER TABLE certificates   ENABLE ROW LEVEL SECURITY;
-ALTER TABLE maintenance    ENABLE ROW LEVEL SECURITY;
-ALTER TABLE notifications  ENABLE ROW LEVEL SECURITY;
+ALTER TABLE profiles       ENABLE ROW LEVEL SECURITY;
+ALTER TABLE graves          ENABLE ROW LEVEL SECURITY;
+ALTER TABLE burials         ENABLE ROW LEVEL SECURITY;
+ALTER TABLE payments        ENABLE ROW LEVEL SECURITY;
+ALTER TABLE certificates    ENABLE ROW LEVEL SECURITY;
+ALTER TABLE maintenance     ENABLE ROW LEVEL SECURITY;
+ALTER TABLE grave_bookings  ENABLE ROW LEVEL SECURITY;
+ALTER TABLE notifications   ENABLE ROW LEVEL SECURITY;
 
 -- The service-role key used by the Next.js API routes bypasses RLS automatically.
 -- These policies allow the anon/authenticated keys (browser client) read access
@@ -126,7 +145,9 @@ CREATE POLICY "Authenticated read graves"       ON graves        FOR SELECT TO a
 CREATE POLICY "Authenticated read burials"      ON burials       FOR SELECT TO authenticated USING (true);
 CREATE POLICY "Authenticated read payments"     ON payments      FOR SELECT TO authenticated USING (true);
 CREATE POLICY "Authenticated read certificates" ON certificates  FOR SELECT TO authenticated USING (true);
-CREATE POLICY "Authenticated read maintenance"  ON maintenance   FOR SELECT TO authenticated USING (true);
+CREATE POLICY "Authenticated read maintenance"  ON maintenance      FOR SELECT TO authenticated USING (true);
+CREATE POLICY "Own bookings read"               ON grave_bookings   FOR SELECT TO authenticated USING (booked_by = auth.uid());
+CREATE POLICY "Own bookings insert"             ON grave_bookings   FOR INSERT TO authenticated WITH CHECK (booked_by = auth.uid());
 CREATE POLICY "Own profile read"                ON profiles      FOR SELECT TO authenticated USING (auth.uid() = id);
 CREATE POLICY "Own notifications read"          ON notifications FOR SELECT TO authenticated USING (user_id = auth.uid());
 

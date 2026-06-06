@@ -17,6 +17,9 @@ export const CERT_COLS =
 export const MAINTENANCE_COLS =
   'id, graveId:grave_id, graveNumber:grave_number, section, title, description, priority, status, reportedBy:reported_by, assignedTo:assigned_to, resolvedAt:resolved_at, createdAt:created_at, updatedAt:updated_at';
 
+export const BOOKING_COLS =
+  'id, graveId:grave_id, bookedBy:booked_by, slotDate:slot_date, slotTime:slot_time, deceasedName:deceased_name, contactName:contact_name, contactPhone:contact_phone, notes, status, approvedBy:approved_by, approvedAt:approved_at, expiresAt:expires_at, createdAt:created_at';
+
 // Creates an anon-key server client that reads/sets cookies from the request.
 // Returns the client and a cookiesToSet array — apply these to your response.
 export function createSupabaseClient(request: NextRequest) {

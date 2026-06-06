@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthUser } from '@/lib/auth';
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
+import { errorResponse } from '@/lib/error-handler';
 
 export async function PUT(req: NextRequest) {
   try {
@@ -24,5 +25,5 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({
       user: { id: auth.id, name: profile.name, email: auth.email, role: profile.role, phone: profile.phone, address: profile.address },
     });
-  } catch { return NextResponse.json({ error: 'Server error' }, { status: 500 }); }
+  } catch (e) { return errorResponse('Failed to update profile', e); }
 }

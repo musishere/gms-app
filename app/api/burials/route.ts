@@ -4,6 +4,7 @@ import { getSupabaseAdmin } from '@/lib/supabase-admin';
 import { BURIAL_COLS, GRAVE_COLS, PAYMENT_COLS } from '@/lib/supabase';
 import { generateReceiptNumber } from '@/lib/utils';
 import { randomUUID } from 'crypto';
+import { errorResponse } from '@/lib/error-handler';
 
 export async function GET(req: NextRequest) {
   try {
@@ -33,7 +34,7 @@ export async function GET(req: NextRequest) {
     }));
 
     return NextResponse.json({ burials: enriched });
-  } catch (e) { console.error(e); return NextResponse.json({ error: 'Server error' }, { status: 500 }); }
+  } catch (e) { return errorResponse('Failed to fetch burials', e); }
 }
 
 export async function POST(req: NextRequest) {
@@ -102,5 +103,5 @@ export async function POST(req: NextRequest) {
     });
 
     return NextResponse.json({ burial, payment, grave: updatedGrave });
-  } catch (e) { console.error(e); return NextResponse.json({ error: 'Server error' }, { status: 500 }); }
+  } catch (e) { return errorResponse('Failed to create burial', e); }
 }

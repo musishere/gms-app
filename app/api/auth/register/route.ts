@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseClient } from '@/lib/supabase';
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
+import { errorResponse } from '@/lib/error-handler';
 
 export async function POST(req: NextRequest) {
   try {
@@ -26,5 +27,5 @@ export async function POST(req: NextRequest) {
     });
     cookiesToSet.forEach(({ name: n, value, options }) => res.cookies.set(n, value, options as never));
     return res;
-  } catch { return NextResponse.json({ error: 'Server error' }, { status: 500 }); }
+  } catch (e) { return errorResponse('Registration failed', e); }
 }

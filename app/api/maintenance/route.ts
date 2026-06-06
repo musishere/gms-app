@@ -3,6 +3,7 @@ import { getAuthUser } from '@/lib/auth';
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
 import { MAINTENANCE_COLS } from '@/lib/supabase';
 import { randomUUID } from 'crypto';
+import { errorResponse } from '@/lib/error-handler';
 
 export async function GET(req: NextRequest) {
   try {
@@ -30,7 +31,7 @@ export async function GET(req: NextRequest) {
     };
 
     return NextResponse.json({ requests: requests ?? [], stats });
-  } catch { return NextResponse.json({ error: 'Server error' }, { status: 500 }); }
+  } catch (e) { return errorResponse('Server error', e); }
 }
 
 export async function POST(req: NextRequest) {
@@ -65,7 +66,7 @@ export async function POST(req: NextRequest) {
     if (error) throw error;
 
     return NextResponse.json({ request });
-  } catch { return NextResponse.json({ error: 'Server error' }, { status: 500 }); }
+  } catch (e) { return errorResponse('Server error', e); }
 }
 
 export async function PATCH(req: NextRequest) {
@@ -92,5 +93,5 @@ export async function PATCH(req: NextRequest) {
     }
 
     return NextResponse.json({ request });
-  } catch { return NextResponse.json({ error: 'Server error' }, { status: 500 }); }
+  } catch (e) { return errorResponse('Server error', e); }
 }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAuthUser } from '@/lib/auth';
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
 import { BURIAL_COLS, GRAVE_COLS, PAYMENT_COLS } from '@/lib/supabase';
+import { errorResponse } from '@/lib/error-handler';
 
 export async function GET(req: NextRequest) {
   try {
@@ -35,7 +36,7 @@ export async function GET(req: NextRequest) {
     const pendingRevenue = allPaid?.filter(p => p.status === 'pending').reduce((s, p) => s + Number(p.amount), 0) ?? 0;
 
     return NextResponse.json({ payments: enriched, totalRevenue, pendingRevenue });
-  } catch { return NextResponse.json({ error: 'Server error' }, { status: 500 }); }
+  } catch (e) { return errorResponse('Failed to fetch payments', e); }
 }
 
 export async function PATCH(req: NextRequest) {
@@ -58,5 +59,5 @@ export async function PATCH(req: NextRequest) {
 
     if (error) return NextResponse.json({ error: 'Not found' }, { status: 404 });
     return NextResponse.json({ payment });
-  } catch { return NextResponse.json({ error: 'Server error' }, { status: 500 }); }
+  } catch (e) { return errorResponse('Failed to update payment', e); }
 }

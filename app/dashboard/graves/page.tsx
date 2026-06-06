@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useAuth } from '@/components/AuthProvider';
 import { GraveBadge } from '@/components/ui/Badges';
 import { formatCurrency } from '@/lib/utils';
-import { MapPin, Search, Filter, Zap, Loader2, X, Info } from 'lucide-react';
+import { MapPin, Search, Zap, Loader2, X, Info, BookMarked } from 'lucide-react';
 
 type Grave = {
   id: string; graveNumber: string; section: string; row: number; column: number;
@@ -196,11 +196,19 @@ export default function GravesPage() {
                 </div>
               ))}
             </div>
-            {selected.status === 'available' && ['admin', 'staff'].includes(user?.role || '') && (
-              <Link href={`/dashboard/burials/new?graveId=${selected.id}`}
-                className="mt-5 w-full flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-400 text-white font-semibold py-2.5 rounded-xl text-sm transition">
-                <MapPin className="w-4 h-4" /> Book This Grave
-              </Link>
+            {selected.status === 'available' && (
+              <div className="mt-5 flex flex-col gap-2">
+                {['admin', 'staff'].includes(user?.role || '') && (
+                  <Link href={`/dashboard/burials/new?graveId=${selected.id}`}
+                    className="w-full flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-400 text-white font-semibold py-2.5 rounded-xl text-sm transition">
+                    <MapPin className="w-4 h-4" /> Record Burial
+                  </Link>
+                )}
+                <Link href={`/dashboard/bookings/new?graveId=${selected.id}`}
+                  className="w-full flex items-center justify-center gap-2 bg-violet-600 hover:bg-violet-500 text-white font-semibold py-2.5 rounded-xl text-sm transition">
+                  <BookMarked className="w-4 h-4" /> Book Slot
+                </Link>
+              </div>
             )}
           </div>
         )}

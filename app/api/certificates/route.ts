@@ -4,6 +4,7 @@ import { getSupabaseAdmin } from '@/lib/supabase-admin';
 import { BURIAL_COLS, CERT_COLS } from '@/lib/supabase';
 import { generateCertNumber } from '@/lib/utils';
 import { randomUUID } from 'crypto';
+import { errorResponse } from '@/lib/error-handler';
 
 export async function GET(req: NextRequest) {
   try {
@@ -23,7 +24,7 @@ export async function GET(req: NextRequest) {
     }));
 
     return NextResponse.json({ certificates: enriched });
-  } catch { return NextResponse.json({ error: 'Server error' }, { status: 500 }); }
+  } catch (e) { return errorResponse('Server error', e); }
 }
 
 export async function POST(req: NextRequest) {
@@ -56,7 +57,7 @@ export async function POST(req: NextRequest) {
     if (error) throw error;
 
     return NextResponse.json({ certificate: cert });
-  } catch { return NextResponse.json({ error: 'Server error' }, { status: 500 }); }
+  } catch (e) { return errorResponse('Server error', e); }
 }
 
 export async function PATCH(req: NextRequest) {
@@ -78,5 +79,5 @@ export async function PATCH(req: NextRequest) {
 
     if (error) return NextResponse.json({ error: 'Not found' }, { status: 404 });
     return NextResponse.json({ certificate });
-  } catch { return NextResponse.json({ error: 'Server error' }, { status: 500 }); }
+  } catch (e) { return errorResponse('Server error', e); }
 }

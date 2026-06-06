@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAuthUser } from '@/lib/auth';
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
 import { BURIAL_COLS, CERT_COLS, GRAVE_COLS, PAYMENT_COLS } from '@/lib/supabase';
+import { errorResponse } from '@/lib/error-handler';
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -25,7 +26,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     ]);
 
     return NextResponse.json({ burial, grave, payment, certificate });
-  } catch { return NextResponse.json({ error: 'Server error' }, { status: 500 }); }
+  } catch (e) { return errorResponse('Failed to fetch burial', e); }
 }
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -53,5 +54,5 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
     if (error) return NextResponse.json({ error: 'Not found' }, { status: 404 });
     return NextResponse.json({ burial });
-  } catch { return NextResponse.json({ error: 'Server error' }, { status: 500 }); }
+  } catch (e) { return errorResponse('Failed to update burial', e); }
 }

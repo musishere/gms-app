@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseClient } from '@/lib/supabase';
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
+import { errorResponse } from '@/lib/error-handler';
 
 export async function GET(req: NextRequest) {
   try {
@@ -19,5 +20,5 @@ export async function GET(req: NextRequest) {
     });
     cookiesToSet.forEach(({ name, value, options }) => res.cookies.set(name, value, options as never));
     return res;
-  } catch { return NextResponse.json({ error: 'Server error' }, { status: 500 }); }
+  } catch (e) { return errorResponse('Failed to fetch user', e); }
 }

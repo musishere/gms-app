@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAuthUser } from '@/lib/auth';
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
 import { GRAVE_COLS } from '@/lib/supabase';
+import { errorResponse } from '@/lib/error-handler';
 
 export async function GET(req: NextRequest) {
   try {
@@ -31,7 +32,7 @@ export async function GET(req: NextRequest) {
     };
 
     return NextResponse.json({ graves: graves ?? [], stats });
-  } catch { return NextResponse.json({ error: 'Server error' }, { status: 500 }); }
+  } catch (e) { return errorResponse('Failed to fetch graves', e); }
 }
 
 export async function PUT(req: NextRequest) {
@@ -57,5 +58,5 @@ export async function PUT(req: NextRequest) {
 
     if (error) return NextResponse.json({ error: 'Grave not found' }, { status: 404 });
     return NextResponse.json({ grave });
-  } catch { return NextResponse.json({ error: 'Server error' }, { status: 500 }); }
+  } catch (e) { return errorResponse('Failed to update grave', e); }
 }
