@@ -5,7 +5,6 @@ import { useAuth } from "@/components/AuthProvider";
 import {
   LayoutDashboard,
   MapPin,
-  Users,
   Calendar,
   CreditCard,
   FileText,
@@ -20,17 +19,16 @@ import {
 } from "lucide-react";
 
 const ALL_NAV = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, roles: ["admin", "staff", "family"] },
-  { href: "/dashboard/graves", label: "Grave Map (GIS)", icon: Map, roles: ["admin", "staff", "family"] },
-  { href: '/dashboard/bookings', label: 'Bookings', icon: BookMarked, roles: ['admin', 'staff', 'family'] },
-  { href: "/dashboard/burials", label: "Burials", icon: Calendar, roles: ["admin", "staff", "family"] },
-  { href: "/dashboard/deceased", label: "Deceased Registry", icon: UserSearch, roles: ["admin", "staff"] },
-  { href: "/dashboard/payments", label: "Payments", icon: CreditCard, roles: ["admin", "staff", "family"] },
-  { href: "/dashboard/certificates", label: "Death Certificates", icon: FileText, roles: ["admin", "staff", "family"] },
-  { href: "/dashboard/maintenance", label: "Maintenance", icon: Wrench, roles: ["admin", "staff", "family"] },
-  { href: "/dashboard/reports", label: "Reports", icon: BarChart3, roles: ["admin", "staff"] },
-  { href: "/dashboard/family", label: "Family Portal", icon: Users, roles: ["admin", "staff", "family"] },
-  { href: "/dashboard/settings", label: "Settings", icon: Settings, roles: ["admin", "staff"] },
+  { href: "/dashboard",              label: "Dashboard",         icon: LayoutDashboard, roles: ["admin", "staff", "family"] },
+  { href: "/dashboard/graves",       label: "Grave Map (GIS)",   icon: Map,             roles: ["admin", "staff", "family"] },
+  { href: "/dashboard/bookings",     label: "Bookings",          icon: BookMarked,      roles: ["admin", "staff", "family"] },
+  { href: "/dashboard/burials",      label: "Burials",           icon: Calendar,        roles: ["admin", "staff", "family"] },
+  { href: "/dashboard/deceased",     label: "Deceased Registry", icon: UserSearch,      roles: ["admin", "staff"] },
+  { href: "/dashboard/payments",     label: "Payments",          icon: CreditCard,      roles: ["admin", "staff", "family"] },
+  { href: "/dashboard/certificates", label: "Death Certificates",icon: FileText,        roles: ["admin", "staff", "family"] },
+  { href: "/dashboard/maintenance",  label: "Maintenance",       icon: Wrench,          roles: ["admin", "staff"] },
+  { href: "/dashboard/reports",      label: "Reports",           icon: BarChart3,       roles: ["admin"] },
+  { href: "/dashboard/settings",     label: "Settings",          icon: Settings,        roles: ["admin"] },
 ];
 
 export default function Sidebar() {

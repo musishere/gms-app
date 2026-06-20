@@ -1,17 +1,27 @@
 'use client';
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/components/AuthProvider';
 import { formatCurrency } from '@/lib/utils';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
   LineChart, Line, Legend, PieChart, Pie, Cell,
 } from 'recharts';
-import { BarChart3, Download, Loader2, TrendingUp, Calendar, CreditCard, MapPin } from 'lucide-react';
+import { BarChart3, Download, Loader2, TrendingUp, Calendar, CreditCard, MapPin, ShieldAlert } from 'lucide-react';
 
 export default function ReportsPage() {
+  const { user } = useAuth();
+  const router = useRouter();
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
+  // Admin-only page
   useEffect(() => {
+    if (user && user.role !== 'admin') router.replace('/dashboard');
+  }, [user, router]);
+
+  useEffect(() => {
+    if (!user || user.role !== 'admin') return;
     fetch('/api/dashboard').then(r => r.json()).then(setData).finally(() => setLoading(false));
   }, []);
 

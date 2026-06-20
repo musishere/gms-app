@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/AuthProvider';
 import { MaintBadge, PriorityBadge } from '@/components/ui/Badges';
 import { formatDateTime } from '@/lib/utils';
@@ -7,7 +8,13 @@ import { Wrench, Plus, Loader2, CheckCircle2, PlayCircle, AlertTriangle, X } fro
 
 export default function MaintenancePage() {
   const { user } = useAuth();
+  const router = useRouter();
   const isStaff = ['admin', 'staff'].includes(user?.role || '');
+
+  // Staff/admin only — redirect family users
+  useEffect(() => {
+    if (user && user.role === 'family') router.replace('/dashboard');
+  }, [user, router]);
   const [requests, setRequests] = useState<any[]>([]);
   const [graves, setGraves] = useState<any[]>([]);
   const [stats, setStats] = useState<any>({});
