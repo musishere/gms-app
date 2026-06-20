@@ -101,6 +101,10 @@ export default function NewBurialPage() {
           deceasedName: booking.deceasedName || f.deceasedName,
           burialDate: booking.slotDate || f.burialDate,
           burialTime: booking.slotTime || f.burialTime,
+          // Map booking contact -> next of kin fields when converting
+          nextOfKin: booking.contactName || f.nextOfKin,
+          nextOfKinPhone: booking.contactPhone || f.nextOfKinPhone,
+          notes: booking.notes || f.notes,
         }));
       }
     });
