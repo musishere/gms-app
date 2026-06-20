@@ -204,12 +204,17 @@ export default function NewBookingPage() {
     slotDate: new Date(Date.now() + 86400000).toISOString().slice(0, 10),
     slotTime: "10:00",
     deceasedName: "",
+    deceasedCNIC: "",
+    dateOfDeath: "",
+    causeOfDeath: "",
+    address: "",
     contactName: "",
     contactPhone: "",
     notes: "",
   });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [clientValidationError, setClientValidationError] = useState('');
 
   // ── Payment modal ──────────────────────────────────────────────────────────
   const [showPayment, setShowPayment] = useState(false);
@@ -228,6 +233,23 @@ export default function NewBookingPage() {
       HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
     >,
   ) => setForm((f) => ({ ...f, [e.target.name]: e.target.value }));
+
+  // client-side validation helpers
+  const validateCNIC = (val: string) => {
+    if (!val) return true;
+    const norm = val.replace(/\s+/g, '');
+    return /^\d{5}-?\d{7}-?\d{1}$/.test(norm);
+  };
+
+  const validateFormClient = () => {
+    if (!validateCNIC(form.deceasedCNIC)) return 'CNIC format invalid (expected 12345-1234567-1)';
+    if (form.dateOfDeath) {
+      const d = new Date(form.dateOfDeath);
+      if (Number.isNaN(d.getTime())) return 'Invalid Date of Death';
+      if (d.getTime() > Date.now()) return 'Date of Death cannot be in the future';
+    }
+    return '';
+  };
 
   // ── Fetch all graveyards with availability stats ───────────────────────────
   useEffect(() => {
@@ -367,6 +389,9 @@ export default function NewBookingPage() {
   // ── Submit booking → open payment modal ───────────────────────────────────
   const submit = async () => {
     if (!selectedGrave) return;
+    const clientErr = validateFormClient();
+    if (clientErr) { setClientValidationError(clientErr); return; }
+    setClientValidationError('');
     setSubmitting(true);
     setError("");
     try {
@@ -916,6 +941,20 @@ export default function NewBookingPage() {
                   className={inputCls}
                 />
               </Field>
+              <div className="grid sm:grid-cols-2 gap-4">
+                <Field label="CNIC">
+                  <input name="deceasedCNIC" value={form.deceasedCNIC} onChange={h} placeholder="00000-0000000-0" className={inputCls} />
+                </Field>
+                <Field label="Date of Death">
+                  <input name="dateOfDeath" value={form.dateOfDeath} onChange={h} type="date" className={inputCls} />
+                </Field>
+                <Field label="Cause of Death">
+                  <input name="causeOfDeath" value={form.causeOfDeath} onChange={h} className={inputCls} />
+                </Field>
+                <Field label="Address">
+                  <input name="address" value={form.address} onChange={h} className={inputCls} />
+                </Field>
+              </div>
             </div>
 
             <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-4">
@@ -961,6 +1000,11 @@ export default function NewBookingPage() {
                 <AlertCircle className="w-4 h-4 shrink-0" /> {error}
               </div>
             )}
+              {clientValidationError && (
+                <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/30 rounded-lg px-4 py-3 text-red-400 text-sm">
+                  <AlertCircle className="w-4 h-4 shrink-0" /> {clientValidationError}
+                </div>
+              )}
 
             <div className="flex gap-3 justify-between">
               <button

@@ -36,9 +36,25 @@ export async function POST(req: NextRequest) {
     const auth = await getAuthUser(req);
     if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const { graveId, graveyardId, slotDate, slotTime, deceasedName, contactName, contactPhone, notes } = await req.json();
+    const { graveId, graveyardId, slotDate, slotTime, deceasedName, deceasedCNIC, dateOfDeath, causeOfDeath, address, contactName, contactPhone, notes } = await req.json();
     if (!graveId || !slotDate || !slotTime || !deceasedName || !contactName || !contactPhone)
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+
+    // Basic validation: CNIC format (allow blank), dateOfDeath must be a valid date not in the future
+    const cnic = String(deceasedCNIC || '').trim();
+    if (cnic) {
+      const cnicNormalized = cnic.replace(/\s+/g, '');
+      const cnicRegex = /^\d{5}-?\d{7}-?\d{1}$/; // accepts 12345-1234567-1 or 1234512345671
+      if (!cnicRegex.test(cnicNormalized)) {
+        return NextResponse.json({ error: 'Invalid CNIC format' }, { status: 400 });
+      }
+    }
+
+    if (dateOfDeath) {
+      const d = new Date(dateOfDeath);
+      if (Number.isNaN(d.getTime())) return NextResponse.json({ error: 'Invalid dateOfDeath' }, { status: 400 });
+      if (d.getTime() > Date.now()) return NextResponse.json({ error: 'dateOfDeath cannot be in the future' }, { status: 400 });
+    }
 
     const admin = getSupabaseAdmin();
 
@@ -67,6 +83,10 @@ export async function POST(req: NextRequest) {
       slot_date: slotDate,
       slot_time: slotTime,
       deceased_name: deceasedName,
+      deceased_cnic: deceasedCNIC || '',
+      date_of_death: dateOfDeath || null,
+      cause_of_death: causeOfDeath || '',
+      address: address || '',
       contact_name: contactName,
       contact_phone: contactPhone,
       notes: notes || '',

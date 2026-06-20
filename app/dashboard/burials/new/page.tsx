@@ -105,6 +105,11 @@ export default function NewBurialPage() {
           nextOfKin: booking.contactName || f.nextOfKin,
           nextOfKinPhone: booking.contactPhone || f.nextOfKinPhone,
           notes: booking.notes || f.notes,
+          // Map additional deceased details from booking
+          deceasedCNIC: booking.deceasedCnic || f.deceasedCNIC,
+          dateOfDeath: booking.dateOfDeath || f.dateOfDeath,
+          causeOfDeath: booking.causeOfDeath || f.causeOfDeath,
+          address: booking.address || f.address,
         }));
       }
     });
