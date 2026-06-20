@@ -21,7 +21,13 @@ export async function GET(req: NextRequest) {
     let query = admin.from('burials').select(BURIAL_COLS).order('created_at', { ascending: false });
     if (auth.role === 'family') query = query.eq('booking_user_id', auth.id);
     if (status) query = query.eq('status', status);
-    if (month) query = query.like('burial_date', `${month}%`);
+    if (month) {
+      // month in format YYYY-MM, filter by date range (first day of month inclusive, first day of next month exclusive)
+      const start = `${month}-01`;
+      const d = new Date(start);
+      const next = new Date(d.getFullYear(), d.getMonth() + 1, 1).toISOString().slice(0, 10);
+      query = query.gte('burial_date', start).lt('burial_date', next);
+    }
     if (search) {
       const term = `%${search}%`;
       query = query.or(`deceased->>name.ilike.${term},deceased->>cnic.ilike.${term}`);

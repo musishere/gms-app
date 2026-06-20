@@ -14,13 +14,27 @@ export async function GET(req: NextRequest) {
     const status = searchParams.get('status');
 
     const admin = getSupabaseAdmin();
-    let query = admin.from('grave_bookings').select(BOOKING_COLS).order('created_at', { ascending: false });
-
-    if (auth.role === 'family') query = query.eq('booked_by', auth.id);
-    if (status) query = query.eq('status', status);
-
-    const { data: bookings, error } = await query;
-    if (error) throw error;
+    // Try selecting with the extended BOOKING_COLS; fall back to the previous alias if DB doesn't have the new columns yet.
+    let bookings: any = null;
+    try {
+      let q = admin.from('grave_bookings').select(BOOKING_COLS).order('created_at', { ascending: false });
+      if (auth.role === 'family') q = q.eq('booked_by', auth.id);
+      if (status) q = q.eq('status', status);
+      const res = await q;
+      if (res.error) throw res.error;
+      bookings = res.data ?? [];
+    } catch (err: any) {
+      // If the error is missing-column (42703), retry with the older booking columns that don't include the new fields.
+      if (err && err.code === '42703') {
+        const OLD = 'id, graveyardId:graveyard_id, graveId:grave_id, bookedBy:booked_by, slotDate:slot_date, slotTime:slot_time, deceasedName:deceased_name, contactName:contact_name, contactPhone:contact_phone, notes, status, approvedBy:approved_by, approvedAt:approved_at, expiresAt:expires_at, createdAt:created_at';
+        let q2 = admin.from('grave_bookings').select(OLD).order('created_at', { ascending: false });
+        if (auth.role === 'family') q2 = q2.eq('booked_by', auth.id);
+        if (status) q2 = q2.eq('status', status);
+        const r2 = await q2;
+        if (r2.error) throw r2.error;
+        bookings = r2.data ?? [];
+      } else throw err;
+    }
 
     const enriched = await Promise.all((bookings ?? []).map(async (b: Record<string, unknown>) => {
       const { data: grave } = await admin.from('graves').select(GRAVE_COLS).eq('id', b.graveId).single();
