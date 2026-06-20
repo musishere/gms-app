@@ -5,6 +5,27 @@ import { BOOKING_COLS, GRAVE_COLS } from '@/lib/supabase';
 import { errorResponse } from '@/lib/error-handler';
 import { randomUUID } from 'crypto';
 
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  try {
+    const auth = await getAuthUser(req);
+    if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+    const { id } = await params;
+    const admin = getSupabaseAdmin();
+
+    const { data: booking, error } = await admin
+      .from('grave_bookings').select(BOOKING_COLS).eq('id', id).single();
+    if (error || !booking) return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
+
+    const b = booking as Record<string, unknown>;
+    if (auth.role === 'family' && b.bookedBy !== auth.id)
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+
+    const { data: grave } = await admin.from('graves').select(GRAVE_COLS).eq('id', b.graveId).single();
+    return NextResponse.json({ booking, grave });
+  } catch (e) { return errorResponse('Failed to fetch booking', e); }
+}
+
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const auth = await getAuthUser(req);

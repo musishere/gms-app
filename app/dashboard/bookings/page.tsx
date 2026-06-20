@@ -5,7 +5,7 @@ import { useAuth } from '@/components/AuthProvider';
 import { formatDate, formatCurrency } from '@/lib/utils';
 import {
   BookMarked, Plus, CheckCircle2, XCircle, Clock, RefreshCw,
-  MapPin, Calendar, Phone, User, Loader2, AlertCircle,
+  MapPin, Calendar, Phone, User, Loader2, AlertCircle, Eye,
 } from 'lucide-react';
 
 type BookingStatus = 'pending' | 'approved' | 'cancelled' | 'converted';
@@ -148,6 +148,10 @@ export default function BookingsPage() {
 
                 {/* Actions */}
                 <div className="flex flex-col gap-2 shrink-0">
+                  <Link href={`/dashboard/bookings/${b.id}`}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-medium rounded-lg border border-slate-700 transition">
+                    <Eye className="w-3.5 h-3.5" /> View
+                  </Link>
                   {isStaff && b.status === 'pending' && (
                     <>
                       <button onClick={() => patch(b.id, 'approved')} disabled={actionId === b.id}
