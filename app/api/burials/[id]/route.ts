@@ -85,3 +85,37 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     return NextResponse.json({ burial });
   } catch (e) { return errorResponse('Failed to update burial', e); }
 }
+
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  try {
+    const auth = await getAuthUser(req);
+    if (!auth || auth.role !== 'admin')
+      return NextResponse.json({ error: 'Forbidden — admin only' }, { status: 403 });
+
+    const { id } = await params;
+    const admin = getSupabaseAdmin();
+
+    // Fetch burial to get the linked grave id
+    const { data: burial, error: fetchErr } = await admin
+      .from('burials').select('id, grave_id').eq('id', id).single();
+    if (fetchErr || !burial)
+      return NextResponse.json({ error: 'Burial not found' }, { status: 404 });
+
+    const graveId = (burial as Record<string, unknown>).grave_id as string | null;
+
+    // Delete in dependency order: certificates → payments → burial
+    await admin.from('certificates').delete().eq('burial_id', id);
+    await admin.from('payments').delete().eq('burial_id', id);
+    const { error: delErr } = await admin.from('burials').delete().eq('id', id);
+    if (delErr) return NextResponse.json({ error: delErr.message }, { status: 500 });
+
+    // Free up the grave so it can be reused
+    if (graveId) {
+      await admin.from('graves')
+        .update({ status: 'available', occupied_by: null, burial_id: null })
+        .eq('id', graveId);
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (e) { return errorResponse('Failed to delete burial', e); }
+}

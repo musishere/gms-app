@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useAuth } from '@/components/AuthProvider';
 import { BurialBadge, PayBadge } from '@/components/ui/Badges';
 import { formatDate, formatDateTime, formatCurrency } from '@/lib/utils';
-import { ArrowLeft, FileText, Download, Loader2, MapPin, Clock, User, Phone, CreditCard, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, FileText, Download, Loader2, MapPin, Clock, User, Phone, CreditCard, AlertTriangle, CheckCircle2, Trash2, X } from 'lucide-react';
 
 export default function BurialDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -16,6 +16,8 @@ export default function BurialDetailPage() {
   const [updating, setUpdating] = useState(false);
   const [editingDeceased, setEditingDeceased] = useState(false);
   const [deceasedForm, setDeceasedForm] = useState<any>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     fetch(`/api/burials/${id}`).then(r => r.json()).then(d => {
@@ -55,6 +57,19 @@ export default function BurialDetailPage() {
     const r = await fetch(`/api/burials/${id}`);
     setData(await r.json());
     setUpdating(false);
+  };
+
+  const deleteBurial = async () => {
+    setDeleting(true);
+    const r = await fetch(`/api/burials/${id}`, { method: 'DELETE' });
+    if (r.ok) {
+      router.push('/dashboard/burials');
+    } else {
+      const d = await r.json();
+      alert(d.error ?? 'Delete failed');
+      setDeleting(false);
+      setConfirmDelete(false);
+    }
   };
 
   const downloadReceipt = async () => {
@@ -157,6 +172,14 @@ export default function BurialDetailPage() {
             <Link href={`/dashboard/certificates/new?burialId=${b.id}`} className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-400 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition">
               <FileText className="w-4 h-4" /> Request Certificate
             </Link>
+          )}
+          {user?.role === 'admin' && (
+            <button
+              onClick={() => setConfirmDelete(true)}
+              className="flex items-center gap-2 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-400 hover:text-red-300 px-4 py-2.5 rounded-xl text-sm font-medium transition"
+            >
+              <Trash2 className="w-4 h-4" /> Delete
+            </button>
           )}
         </div>
       </div>
@@ -385,6 +408,67 @@ export default function BurialDetailPage() {
           )}
         </div>
       </div>
+
+      {/* ── Delete confirm modal ─────────────────────────────────────────────── */}
+      {confirmDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm" onClick={() => { if (!deleting) setConfirmDelete(false); }} />
+          <div className="relative z-10 w-full max-w-sm bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl overflow-hidden">
+            {/* Header */}
+            <div className="px-5 pt-5 pb-4 border-b border-slate-800 flex items-start justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-red-500/10 border border-red-500/20 flex items-center justify-center shrink-0">
+                  <Trash2 className="w-4 h-4 text-red-400" />
+                </div>
+                <div>
+                  <h2 className="text-base font-bold text-white">Delete Burial Record</h2>
+                  <p className="text-xs text-slate-400 mt-0.5">This action cannot be undone</p>
+                </div>
+              </div>
+              {!deleting && (
+                <button onClick={() => setConfirmDelete(false)} className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-slate-800 transition">
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+
+            {/* Body */}
+            <div className="p-5 space-y-4">
+              <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 space-y-2 text-sm">
+                <p className="text-red-300 font-semibold">The following will be permanently deleted:</p>
+                <ul className="text-red-400/80 space-y-1 text-xs list-disc list-inside">
+                  <li>Burial record for <span className="text-white font-medium">{b.deceased?.name}</span></li>
+                  <li>Associated payment record</li>
+                  <li>Associated death certificate (if any)</li>
+                </ul>
+              </div>
+
+              <div className="bg-slate-800 rounded-xl p-3 text-xs space-y-1">
+                <p className="text-slate-400">Grave <span className="text-white font-medium">{g?.graveNumber}</span> will be marked <span className="text-emerald-400 font-medium">available</span> again.</p>
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setConfirmDelete(false)}
+                  disabled={deleting}
+                  className="flex-1 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-slate-300 text-sm rounded-lg transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={deleteBurial}
+                  disabled={deleting}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-red-500 hover:bg-red-400 disabled:opacity-60 text-white text-sm font-semibold rounded-lg transition"
+                >
+                  {deleting
+                    ? <><Loader2 className="w-4 h-4 animate-spin" /> Deleting…</>
+                    : <><Trash2 className="w-4 h-4" /> Yes, Delete</>}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
