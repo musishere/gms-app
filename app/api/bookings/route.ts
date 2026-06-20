@@ -89,26 +89,53 @@ export async function POST(req: NextRequest) {
     const now = new Date().toISOString();
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
 
-    const { data: booking, error } = await admin.from('grave_bookings').insert({
-      id: randomUUID(),
-      graveyard_id: graveyardId || (grave as Record<string, unknown>).graveyardId || 'uol-main',
-      grave_id: graveId,
-      booked_by: auth.id,
-      slot_date: slotDate,
-      slot_time: slotTime,
-      deceased_name: deceasedName,
-      deceased_cnic: deceasedCNIC || '',
-      date_of_death: dateOfDeath || null,
-      cause_of_death: causeOfDeath || '',
-      address: address || '',
-      contact_name: contactName,
-      contact_phone: contactPhone,
-      notes: notes || '',
-      status: 'pending',
-      expires_at: expiresAt,
-      created_at: now,
-    }).select(BOOKING_COLS).single();
-    if (error) throw error;
+    let booking: any = null;
+    try {
+      const res = await admin.from('grave_bookings').insert({
+        id: randomUUID(),
+        graveyard_id: graveyardId || (grave as Record<string, unknown>).graveyardId || 'uol-main',
+        grave_id: graveId,
+        booked_by: auth.id,
+        slot_date: slotDate,
+        slot_time: slotTime,
+        deceased_name: deceasedName,
+        deceased_cnic: deceasedCNIC || '',
+        date_of_death: dateOfDeath || null,
+        cause_of_death: causeOfDeath || '',
+        address: address || '',
+        contact_name: contactName,
+        contact_phone: contactPhone,
+        notes: notes || '',
+        status: 'pending',
+        expires_at: expiresAt,
+        created_at: now,
+      }).select(BOOKING_COLS).single();
+      if (res.error) throw res.error;
+      booking = res.data;
+    } catch (err: any) {
+      // If the DB doesn't have the new columns (e.g. migration not applied), retry without them
+      if (err && err.code === '42703') {
+        const res2 = await admin.from('grave_bookings').insert({
+          id: randomUUID(),
+          graveyard_id: graveyardId || (grave as Record<string, unknown>).graveyardId || 'uol-main',
+          grave_id: graveId,
+          booked_by: auth.id,
+          slot_date: slotDate,
+          slot_time: slotTime,
+          deceased_name: deceasedName,
+          contact_name: contactName,
+          contact_phone: contactPhone,
+          notes: notes || '',
+          status: 'pending',
+          expires_at: expiresAt,
+          created_at: now,
+        }).select();
+        if (res2.error) throw res2.error;
+        booking = res2.data ? res2.data[0] : null;
+      } else {
+        throw err;
+      }
+    }
 
     await admin.from('notifications').insert({
       id: randomUUID(),
