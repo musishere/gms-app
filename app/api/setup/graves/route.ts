@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
+import { GRAVEYARDS } from '@/lib/graveyards';
+import type { Graveyard } from '@/lib/graveyards';
 
-// One-time endpoint to seed the graves table.
-// Requires: Authorization: Bearer <SUPABASE_SERVICE_ROLE_KEY>
-// DELETE this route (or add an env flag) after seeding production.
+const SIZES = ['standard', 'standard', 'standard', 'child', 'double', 'vip'];
+const PRICES: Record<string, number> = { standard: 15000, child: 8000, double: 25000, vip: 50000 };
+const SECTIONS = ['A', 'B', 'C', 'D', 'VIP'];
+
 export async function POST(req: NextRequest) {
   const auth = req.headers.get('authorization');
   if (auth !== `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`) {
@@ -11,48 +14,74 @@ export async function POST(req: NextRequest) {
   }
 
   const admin = getSupabaseAdmin();
-  const { count } = await admin.from('graves').select('*', { count: 'exact', head: true });
-  if ((count ?? 0) > 0) return NextResponse.json({ message: `Already seeded (${count} graves)` });
 
-  const graves = generateGraves();
+  // Find which graveyards already have any graves
+  const { data: existing } = await admin
+    .from('graves')
+    .select('graveyard_id');
+
+  const seededIds = new Set((existing ?? []).map((g: { graveyard_id: string }) => g.graveyard_id));
+  const missing = GRAVEYARDS.filter(g => !seededIds.has(g.id));
+
+  if (missing.length === 0) {
+    return NextResponse.json({
+      message: `All ${GRAVEYARDS.length} graveyards already seeded.`,
+      seeded: 0,
+    });
+  }
+
+  const graves = generateGraves(missing);
   const { error } = await admin.from('graves').insert(graves);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  return NextResponse.json({ message: `Seeded ${graves.length} graves successfully` });
+  return NextResponse.json({
+    message: `Seeded ${graves.length} graves across ${missing.length} graveyard(s).`,
+    graveyards: missing.map(g => `${g.name} (${g.city})`),
+    seeded: graves.length,
+    alreadyDone: [...seededIds],
+  });
 }
 
-function generateGraves() {
-  const graves: Record<string, unknown>[] = [];
-  const sections = ['A', 'B', 'C', 'D', 'VIP'];
-  const sizes = ['standard', 'standard', 'standard', 'child', 'double', 'vip'];
-  const prices: Record<string, number> = { standard: 15000, child: 8000, double: 25000, vip: 50000 };
-  const baseLat = 31.5204;
-  const baseLon = 74.3587;
-  let idx = 0;
+function graveyardPrefix(siteId: string): string {
+  // Use full site ID (uppercased, hyphens kept) so prefix is always unique.
+  // e.g. 'bahria-lahore' → 'BAHRIA-LAHORE', 'uol-main' → 'UOL-MAIN'
+  return siteId.toUpperCase();
+}
 
-  for (const section of sections) {
-    const rows = section === 'VIP' ? 3 : 8;
-    const cols = section === 'VIP' ? 5 : 10;
-    for (let r = 1; r <= rows; r++) {
-      for (let c = 1; c <= cols; c++) {
-        const size = section === 'VIP' ? 'vip' : sizes[idx % sizes.length];
-        const num = String(c).padStart(3, '0');
-        graves.push({
-          id: `grave-${section}-${r}-${c}`,
-          grave_number: `${section}-${r}${num}`,
-          section,
-          row: r,
-          grave_col: c,
-          latitude: baseLat + r * 0.0001 + sections.indexOf(section) * 0.001,
-          longitude: baseLon + c * 0.0001,
-          status: 'available',
-          size,
-          price: prices[size],
-          created_at: new Date().toISOString(),
-        });
-        idx++;
+function generateGraves(sites: Graveyard[]) {
+  const graves: Record<string, unknown>[] = [];
+
+  for (const site of sites) {
+    const prefix = graveyardPrefix(site.id);
+    let idx = 0;
+
+    for (const section of SECTIONS) {
+      const rows = section === 'VIP' ? 2 : 5;
+      const cols = section === 'VIP' ? 4 : 8;
+
+      for (let r = 1; r <= rows; r++) {
+        for (let c = 1; c <= cols; c++) {
+          const size = section === 'VIP' ? 'vip' : SIZES[idx % SIZES.length];
+          const col3 = String(c).padStart(3, '0');
+          graves.push({
+            id:           `${site.id}-${section}-${r}-${c}`,
+            graveyard_id: site.id,
+            grave_number: `${prefix}-${section}-${r}${col3}`,
+            section,
+            row:          r,
+            grave_col:    c,
+            latitude:     site.latitude  + r * 0.00008 + SECTIONS.indexOf(section) * 0.0004,
+            longitude:    site.longitude + c * 0.00008,
+            status:       'available',
+            size,
+            price:        PRICES[size],
+            created_at:   new Date().toISOString(),
+          });
+          idx++;
+        }
       }
     }
   }
+
   return graves;
 }

@@ -24,6 +24,7 @@ export interface User {
 
 export interface Grave {
   id: string;
+  graveyardId?: string;
   graveNumber: string;
   section: string;
   row: number;
@@ -37,6 +38,7 @@ export interface Grave {
   burialId?: string;
   lastMaintenanceDate?: string;
   notes?: string;
+  reservedUntil?: string;
   createdAt: string;
 }
 
@@ -97,6 +99,7 @@ export interface DeathCertificate {
   status: CertificateStatus;
   issuedAt?: string;
   notes?: string;
+  verificationCode?: string;
   createdAt: string;
 }
 
@@ -118,6 +121,7 @@ export interface MaintenanceRequest {
 
 export interface GraveBooking {
   id: string;
+  graveyardId?: string;
   graveId: string;
   bookedBy: string;
   slotDate: string;

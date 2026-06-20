@@ -124,6 +124,37 @@ export default function ReportsPage() {
 
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5">
+        {data?.revenueByMethod?.length > 0 && (
+          <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
+            <h2 className="text-sm font-semibold text-slate-300 mb-4">Revenue by Payment Method</h2>
+            <ResponsiveContainer width="100%" height={220}>
+              <PieChart>
+                <Pie data={data.revenueByMethod} cx="50%" cy="50%" outerRadius={80} paddingAngle={3} dataKey="amount" nameKey="method">
+                  {data.revenueByMethod.map((_: any, i: number) => <Cell key={i} fill={PIE[i % PIE.length]} />)}
+                </Pie>
+                <Legend formatter={v => <span style={{ color: '#94a3b8', fontSize: 12 }}>{String(v).replace('_', ' ')}</span>} />
+                <Tooltip contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: 8, fontSize: 12 }} formatter={(v: any) => formatCurrency(v)} />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+        {data?.burialsBySection?.length > 0 && (
+          <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
+            <h2 className="text-sm font-semibold text-slate-300 mb-4">Burials by Section</h2>
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={data.burialsBySection} barSize={24}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
+                <XAxis dataKey="section" tick={{ fill: '#64748b', fontSize: 11 }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fill: '#64748b', fontSize: 11 }} axisLine={false} tickLine={false} allowDecimals={false} />
+                <Tooltip contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: 8, fontSize: 12 }} />
+                <Bar dataKey="count" fill="#8b5cf6" radius={[4, 4, 0, 0]} name="Burials" />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5">
         <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
           <h2 className="text-sm font-semibold text-slate-300 mb-4">Monthly Burials</h2>
           <ResponsiveContainer width="100%" height={220}>

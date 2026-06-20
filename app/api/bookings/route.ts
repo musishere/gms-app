@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
     const auth = await getAuthUser(req);
     if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const { graveId, slotDate, slotTime, deceasedName, contactName, contactPhone, notes } = await req.json();
+    const { graveId, graveyardId, slotDate, slotTime, deceasedName, contactName, contactPhone, notes } = await req.json();
     if (!graveId || !slotDate || !slotTime || !deceasedName || !contactName || !contactPhone)
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
 
@@ -61,6 +61,7 @@ export async function POST(req: NextRequest) {
 
     const { data: booking, error } = await admin.from('grave_bookings').insert({
       id: randomUUID(),
+      graveyard_id: graveyardId || (grave as Record<string, unknown>).graveyardId || 'uol-main',
       grave_id: graveId,
       booked_by: auth.id,
       slot_date: slotDate,

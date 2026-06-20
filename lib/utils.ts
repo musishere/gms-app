@@ -18,3 +18,6 @@ export function generateReceiptNumber() {
 export function generateCertNumber() {
   return `DC-${new Date().getFullYear()}-${Math.random().toString(36).slice(2,8).toUpperCase()}`;
 }
+export function generateVerificationCode() {
+  return `V${Math.random().toString(36).slice(2, 10).toUpperCase()}`;
+}

@@ -14,67 +14,23 @@ import {
   LogOut,
   Settings,
   ChevronRight,
-  BookOpen,
   Map,
   BookMarked,
+  UserSearch,
 } from "lucide-react";
 
 const ALL_NAV = [
-  {
-    href: "/dashboard",
-    label: "Dashboard",
-    icon: LayoutDashboard,
-    roles: ["admin", "staff", "family"],
-  },
-  {
-    href: "/dashboard/graves",
-    label: "Grave Map",
-    icon: Map,
-    roles: ["admin", "staff", "family"],
-  },
+  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, roles: ["admin", "staff", "family"] },
+  { href: "/dashboard/graves", label: "Grave Map (GIS)", icon: Map, roles: ["admin", "staff", "family"] },
   { href: '/dashboard/bookings', label: 'Bookings', icon: BookMarked, roles: ['admin', 'staff', 'family'] },
-  {
-    href: "/dashboard/burials",
-    label: "Burials",
-    icon: Calendar,
-    roles: ["admin", "staff", "family"],
-  },
-  {
-    href: "/dashboard/payments",
-    label: "Payments",
-    icon: CreditCard,
-    roles: ["admin", "staff", "family"],
-  },
-  {
-    href: "/dashboard/certificates",
-    label: "Death Certificates",
-    icon: FileText,
-    roles: ["admin", "staff", "family"],
-  },
-  {
-    href: "/dashboard/maintenance",
-    label: "Maintenance",
-    icon: Wrench,
-    roles: ["admin", "staff"],
-  },
-  {
-    href: "/dashboard/reports",
-    label: "Reports",
-    icon: BarChart3,
-    roles: ["admin", "staff"],
-  },
-  {
-    href: "/dashboard/family",
-    label: "Family Portal",
-    icon: Users,
-    roles: ["admin", "staff", "family"],
-  },
-  {
-    href: "/dashboard/settings",
-    label: "Settings",
-    icon: Settings,
-    roles: ["admin", "staff"],
-  },
+  { href: "/dashboard/burials", label: "Burials", icon: Calendar, roles: ["admin", "staff", "family"] },
+  { href: "/dashboard/deceased", label: "Deceased Registry", icon: UserSearch, roles: ["admin", "staff"] },
+  { href: "/dashboard/payments", label: "Payments", icon: CreditCard, roles: ["admin", "staff", "family"] },
+  { href: "/dashboard/certificates", label: "Death Certificates", icon: FileText, roles: ["admin", "staff", "family"] },
+  { href: "/dashboard/maintenance", label: "Maintenance", icon: Wrench, roles: ["admin", "staff", "family"] },
+  { href: "/dashboard/reports", label: "Reports", icon: BarChart3, roles: ["admin", "staff"] },
+  { href: "/dashboard/family", label: "Family Portal", icon: Users, roles: ["admin", "staff", "family"] },
+  { href: "/dashboard/settings", label: "Settings", icon: Settings, roles: ["admin", "staff"] },
 ];
 
 export default function Sidebar() {
@@ -84,7 +40,7 @@ export default function Sidebar() {
   const nav = ALL_NAV.filter((n) => n.roles.includes(user?.role || "family"));
 
   return (
-    <aside className="flex flex-col w-64 min-h-screen bg-slate-900 border-r border-slate-800">
+    <aside className="hidden lg:flex flex-col w-64 min-h-screen bg-slate-900 border-r border-slate-800 shrink-0">
       <div className="flex items-center gap-3 px-5 py-5 border-b border-slate-800">
         <div className="w-9 h-9 rounded-xl bg-emerald-500 flex items-center justify-center shrink-0">
           <MapPin className="w-5 h-5 text-white" />
@@ -97,9 +53,7 @@ export default function Sidebar() {
 
       <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto scrollbar-thin">
         {nav.map(({ href, label, icon: Icon }) => {
-          const active =
-            pathname === href ||
-            (href !== "/dashboard" && pathname.startsWith(href));
+          const active = pathname === href || (href !== "/dashboard" && pathname.startsWith(href));
           return (
             <Link
               key={href}
@@ -120,9 +74,7 @@ export default function Sidebar() {
             {user?.name?.[0]?.toUpperCase() ?? "U"}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-white truncate">
-              {user?.name}
-            </p>
+            <p className="text-sm font-medium text-white truncate">{user?.name}</p>
             <p className="text-xs text-slate-500 capitalize">{user?.role}</p>
           </div>
         </div>

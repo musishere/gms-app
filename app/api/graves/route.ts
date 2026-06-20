@@ -13,9 +13,11 @@ export async function GET(req: NextRequest) {
     const section = searchParams.get('section');
     const status = searchParams.get('status');
     const size = searchParams.get('size');
+    const graveyardId = searchParams.get('graveyardId');
 
     const admin = getSupabaseAdmin();
     let query = admin.from('graves').select(GRAVE_COLS);
+    if (graveyardId) query = query.eq('graveyard_id', graveyardId);
     if (section) query = query.eq('section', section);
     if (status) query = query.eq('status', status);
     if (size) query = query.eq('size', size);
@@ -31,7 +33,24 @@ export async function GET(req: NextRequest) {
       maintenance: all?.filter(g => g.status === 'maintenance').length ?? 0,
     };
 
-    return NextResponse.json({ graves: graves ?? [], stats });
+    const includeHeatmap = searchParams.get('includeHeatmap') === 'true';
+    let heatmap = null;
+    if (includeHeatmap) {
+      const { data: allGraves } = await admin.from('graves').select('section, status');
+      const sections = ['A', 'B', 'C', 'D', 'VIP'];
+      heatmap = sections.map(sec => {
+        const sg = (allGraves ?? []).filter(g => g.section === sec);
+        const total = sg.length;
+        const available = sg.filter(g => g.status === 'available').length;
+        const occupied = sg.filter(g => g.status === 'occupied').length;
+        const reserved = sg.filter(g => g.status === 'reserved').length;
+        const maintenance = sg.filter(g => g.status === 'maintenance').length;
+        const utilizationPct = total > 0 ? Math.round(((occupied + reserved) / total) * 100) : 0;
+        return { section: sec, total, available, occupied, reserved, maintenance, utilizationPct };
+      });
+    }
+
+    return NextResponse.json({ graves: graves ?? [], stats, heatmap });
   } catch (e) { return errorResponse('Failed to fetch graves', e); }
 }
 

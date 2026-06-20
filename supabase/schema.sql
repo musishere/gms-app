@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS profiles (
 -- Graves
 CREATE TABLE IF NOT EXISTS graves (
   id                     TEXT PRIMARY KEY,
+  graveyard_id           TEXT NOT NULL DEFAULT 'uol-main',
   grave_number           TEXT NOT NULL UNIQUE,
   section                TEXT NOT NULL,
   row                    INTEGER NOT NULL,
@@ -31,6 +32,7 @@ CREATE TABLE IF NOT EXISTS graves (
   burial_id              TEXT,
   last_maintenance_date  TIMESTAMPTZ,
   notes                  TEXT,
+  reserved_until         TIMESTAMPTZ,
   created_at             TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -78,6 +80,7 @@ CREATE TABLE IF NOT EXISTS certificates (
   status              TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','issued','rejected')),
   issued_at           TIMESTAMPTZ,
   notes               TEXT,
+  verification_code   TEXT UNIQUE,
   created_at          TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -101,6 +104,7 @@ CREATE TABLE IF NOT EXISTS maintenance (
 -- Grave Bookings (slot reservations prior to full burial records)
 CREATE TABLE IF NOT EXISTS grave_bookings (
   id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  graveyard_id  TEXT NOT NULL DEFAULT 'uol-main',
   grave_id      TEXT REFERENCES graves(id),
   booked_by     UUID REFERENCES profiles(id),
   slot_date     DATE NOT NULL,
@@ -150,6 +154,11 @@ CREATE POLICY "Own bookings read"               ON grave_bookings   FOR SELECT T
 CREATE POLICY "Own bookings insert"             ON grave_bookings   FOR INSERT TO authenticated WITH CHECK (booked_by = auth.uid());
 CREATE POLICY "Own profile read"                ON profiles      FOR SELECT TO authenticated USING (auth.uid() = id);
 CREATE POLICY "Own notifications read"          ON notifications FOR SELECT TO authenticated USING (user_id = auth.uid());
+
+-- Indexes for performance
+CREATE INDEX IF NOT EXISTS idx_burials_deceased_name ON burials ((deceased->>'name'));
+CREATE INDEX IF NOT EXISTS idx_burials_burial_date ON burials (burial_date);
+CREATE INDEX IF NOT EXISTS idx_graves_graveyard ON graves (graveyard_id);
 
 -- ─── Seed: 390 graves across sections A, B, C, D, VIP ────────────────────────
 -- Run the companion seed-graves.sql file (or call /api/setup/graves once) to

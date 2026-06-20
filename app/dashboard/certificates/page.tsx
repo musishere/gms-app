@@ -70,8 +70,9 @@ export default function CertificatesPage() {
     const details = [
       ['Deceased Name', c.deceasedName],
       ['Issued To', c.issuedTo],
-      ['Grave Number', burial?.graveId ? '—' : '—'],
+      ['Grave Number', c.grave?.graveNumber || burial?.grave?.graveNumber || '—'],
       ['Burial Date', burial?.burialDate ? formatDate(burial.burialDate) : '—'],
+      ['Conducted By', burial?.conductedBy || '—'],
       ['Issued On', c.issuedAt ? formatDate(c.issuedAt) : '—'],
       ['Status', c.status.toUpperCase()],
     ];
@@ -152,9 +153,14 @@ export default function CertificatesPage() {
                       <td className="px-4 py-3.5">
                         <div className="flex items-center gap-2">
                           {c.status === 'issued' && (
-                            <button onClick={() => downloadCert(c)} className="p-1.5 rounded-lg text-slate-400 hover:text-emerald-400 hover:bg-emerald-500/10 transition" title="Download">
-                              <Download className="w-4 h-4" />
-                            </button>
+                            <>
+                              <button onClick={() => downloadCert(c)} className="p-1.5 rounded-lg text-slate-400 hover:text-emerald-400 hover:bg-emerald-500/10 transition" title="Download">
+                                <Download className="w-4 h-4" />
+                              </button>
+                              {c.verificationCode && (
+                                <a href={`/verify/${c.verificationCode}`} target="_blank" rel="noopener noreferrer" className="text-xs text-emerald-400 hover:text-emerald-300 px-2">Verify</a>
+                              )}
+                            </>
                           )}
                           {c.status === 'pending' && ['admin', 'staff'].includes(user?.role || '') && (
                             <>

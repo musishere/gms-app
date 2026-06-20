@@ -14,10 +14,30 @@ export default function BurialDetailPage() {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
+  const [editingDeceased, setEditingDeceased] = useState(false);
+  const [deceasedForm, setDeceasedForm] = useState<any>(null);
 
   useEffect(() => {
-    fetch(`/api/burials/${id}`).then(r => r.json()).then(setData).finally(() => setLoading(false));
+    fetch(`/api/burials/${id}`).then(r => r.json()).then(d => {
+      setData(d);
+      if (d?.burial?.deceased) setDeceasedForm({ ...d.burial.deceased });
+    }).finally(() => setLoading(false));
   }, [id]);
+
+  const saveDeceased = async () => {
+    setUpdating(true);
+    await fetch(`/api/burials/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ deceased: deceasedForm }),
+    });
+    const r = await fetch(`/api/burials/${id}`);
+    const d = await r.json();
+    setData(d);
+    setDeceasedForm({ ...d.burial.deceased });
+    setEditingDeceased(false);
+    setUpdating(false);
+  };
 
   const markPaid = async () => {
     if (!data?.payment) return;
@@ -149,40 +169,73 @@ export default function BurialDetailPage() {
             <div className="flex items-center gap-2 mb-4">
               <User className="w-4 h-4 text-emerald-400" />
               <h2 className="text-sm font-semibold text-slate-200">Deceased Person</h2>
+              {['admin', 'staff'].includes(user?.role || '') && !editingDeceased && (
+                <button onClick={() => setEditingDeceased(true)} className="ml-auto text-xs text-emerald-400 hover:text-emerald-300">Edit</button>
+              )}
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              {[
-                ['Full Name', b.deceased?.name],
-                ['CNIC', b.deceased?.cnic || '—'],
-                ['Date of Birth', b.deceased?.dateOfBirth ? formatDate(b.deceased.dateOfBirth) : '—'],
-                ['Date of Death', b.deceased?.dateOfDeath ? formatDate(b.deceased.dateOfDeath) : '—'],
-                ['Cause of Death', b.deceased?.causeOfDeath || '—'],
-                ['Religion', b.deceased?.religion || '—'],
-                ['Nationality', b.deceased?.nationality || '—'],
-                ['Address', b.deceased?.address || '—'],
-              ].map(([k, v]) => (
-                <div key={k}>
-                  <p className="text-xs text-slate-500 mb-0.5">{k}</p>
-                  <p className="text-sm text-slate-200 font-medium">{v}</p>
+            {editingDeceased && deceasedForm ? (
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  {[
+                    ['name', 'Full Name'], ['cnic', 'CNIC'], ['dateOfBirth', 'Date of Birth'],
+                    ['dateOfDeath', 'Date of Death'], ['causeOfDeath', 'Cause of Death'],
+                    ['religion', 'Religion'], ['nationality', 'Nationality'], ['address', 'Address'],
+                    ['nextOfKin', 'Next of Kin'], ['nextOfKinPhone', 'Phone'],
+                    ['nextOfKinCNIC', 'NOK CNIC'], ['relationship', 'Relationship'],
+                  ].map(([key, label]) => (
+                    <div key={key}>
+                      <label className="text-xs text-slate-500 mb-0.5 block">{label}</label>
+                      <input
+                        value={deceasedForm[key] || ''}
+                        onChange={e => setDeceasedForm((f: any) => ({ ...f, [key]: e.target.value }))}
+                        type={key.includes('date') || key.includes('Date') ? 'date' : 'text'}
+                        className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-2 text-sm text-white focus:outline-none focus:border-emerald-500"
+                      />
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-            <div className="border-t border-slate-800 mt-4 pt-4">
-              <p className="text-xs text-slate-500 mb-2 font-medium">Next of Kin</p>
-              <div className="grid grid-cols-2 gap-3">
-                {[
-                  ['Name', b.deceased?.nextOfKin],
-                  ['Phone', b.deceased?.nextOfKinPhone],
-                  ['CNIC', b.deceased?.nextOfKinCNIC || '—'],
-                  ['Relationship', b.deceased?.relationship || '—'],
-                ].map(([k, v]) => (
-                  <div key={k}>
-                    <p className="text-xs text-slate-500 mb-0.5">{k}</p>
-                    <p className="text-sm text-slate-200 font-medium">{v}</p>
-                  </div>
-                ))}
+                <div className="flex gap-2">
+                  <button onClick={saveDeceased} disabled={updating} className="bg-emerald-500 hover:bg-emerald-400 text-white text-xs font-semibold px-4 py-2 rounded-lg transition">Save</button>
+                  <button onClick={() => { setEditingDeceased(false); setDeceasedForm({ ...b.deceased }); }} className="text-xs text-slate-400 hover:text-white px-4 py-2">Cancel</button>
+                </div>
               </div>
-            </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-2 gap-3">
+                  {[
+                    ['Full Name', b.deceased?.name],
+                    ['CNIC', b.deceased?.cnic || '—'],
+                    ['Date of Birth', b.deceased?.dateOfBirth ? formatDate(b.deceased.dateOfBirth) : '—'],
+                    ['Date of Death', b.deceased?.dateOfDeath ? formatDate(b.deceased.dateOfDeath) : '—'],
+                    ['Cause of Death', b.deceased?.causeOfDeath || '—'],
+                    ['Religion', b.deceased?.religion || '—'],
+                    ['Nationality', b.deceased?.nationality || '—'],
+                    ['Address', b.deceased?.address || '—'],
+                  ].map(([k, v]) => (
+                    <div key={k}>
+                      <p className="text-xs text-slate-500 mb-0.5">{k}</p>
+                      <p className="text-sm text-slate-200 font-medium">{v}</p>
+                    </div>
+                  ))}
+                </div>
+                <div className="border-t border-slate-800 mt-4 pt-4">
+                  <p className="text-xs text-slate-500 mb-2 font-medium">Next of Kin</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    {[
+                      ['Name', b.deceased?.nextOfKin],
+                      ['Phone', b.deceased?.nextOfKinPhone],
+                      ['CNIC', b.deceased?.nextOfKinCNIC || '—'],
+                      ['Relationship', b.deceased?.relationship || '—'],
+                    ].map(([k, v]) => (
+                      <div key={k}>
+                        <p className="text-xs text-slate-500 mb-0.5">{k}</p>
+                        <p className="text-sm text-slate-200 font-medium">{v}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
           </div>
 
           {/* Burial info */}
@@ -247,6 +300,20 @@ export default function BurialDetailPage() {
                   </div>
                 ))}
               </div>
+              {g?.latitude && (
+                <Link href={`/dashboard/graves?graveId=${g.id}&view=map`} className="mt-4 block w-full text-center text-xs text-emerald-400 hover:text-emerald-300 border border-emerald-500/30 rounded-lg py-2 transition">
+                  Locate on Map →
+                </Link>
+              )}
+            </div>
+          )}
+
+          {b.qrCode && (
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 text-center">
+              <h2 className="text-sm font-semibold text-slate-200 mb-3">Grave Locator QR</h2>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={b.qrCode} alt="Grave QR Code" className="w-32 h-32 mx-auto rounded-lg" />
+              <p className="text-xs text-slate-500 mt-2">Scan to find grave on map</p>
             </div>
           )}
 
@@ -255,14 +322,32 @@ export default function BurialDetailPage() {
             <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5">
               <div className="flex items-center gap-2 mb-4">
                 <CreditCard className="w-4 h-4 text-emerald-400" />
-                <h2 className="text-sm font-semibold text-slate-200">Payment</h2>
-                <div className="ml-auto"><PayBadge status={p.status} /></div>
+                <h2 className="text-sm font-semibold text-slate-200">Burial Fee</h2>
+                <div className="ml-auto"><PayBadge status={p.status === 'pending' && p.dueDate && new Date(p.dueDate) < new Date() ? 'overdue' : p.status} /></div>
+              </div>
+              <div className="flex items-center gap-2 mb-4">
+                {['pending', 'overdue'].includes(p.status) && (
+                  <div className="flex-1 h-1.5 bg-slate-700 rounded-full"><div className="h-full w-1/3 bg-yellow-500 rounded-full" /></div>
+                )}
+                {p.status === 'paid' && (
+                  <div className="flex items-center gap-1.5 text-xs text-emerald-400"><CheckCircle2 className="w-3.5 h-3.5" /> Payment Complete</div>
+                )}
+              </div>
+              <div className="space-y-2 text-sm border-b border-slate-800 pb-3 mb-3">
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Grave Plot Fee</span>
+                  <span className="text-slate-200">{formatCurrency(g?.price ?? p.amount)}</span>
+                </div>
+                <div className="flex justify-between font-semibold">
+                  <span className="text-slate-400">Total</span>
+                  <span className="text-emerald-400">{formatCurrency(p.amount)}</span>
+                </div>
               </div>
               <div className="space-y-2 text-sm">
                 {[
-                  ['Amount', formatCurrency(p.amount)],
                   ['Method', p.method.replace('_', ' ')],
                   ['Receipt', p.receiptNumber],
+                  p.dueDate ? ['Due Date', formatDate(p.dueDate)] : null,
                   p.paidAt ? ['Paid At', formatDate(p.paidAt)] : null,
                   p.transactionRef ? ['Ref', p.transactionRef] : null,
                 ].filter(Boolean).map(([k, v]: any) => (
