@@ -36,8 +36,22 @@ export async function POST(req: NextRequest) {
     const auth = await getAuthUser(req);
     if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const { graveId, graveyardId, slotDate, slotTime, deceasedName, contactName, contactPhone, notes } = await req.json();
-    if (!graveId || !slotDate || !slotTime || !deceasedName || !contactName || !contactPhone)
+    const body = await req.json();
+    const {
+      graveId, graveyardId, slotDate, slotTime, notes,
+      deceasedName, contactName, contactPhone, deceased,
+    } = body;
+
+    const resolvedDeceased = deceased ?? {
+      name: deceasedName,
+      nextOfKin: contactName,
+      nextOfKinPhone: contactPhone,
+    };
+    const name = resolvedDeceased.name || deceasedName;
+    const nextOfKin = resolvedDeceased.nextOfKin || contactName;
+    const nextOfKinPhone = resolvedDeceased.nextOfKinPhone || contactPhone;
+
+    if (!graveId || !slotDate || !slotTime || !name || !nextOfKin || !nextOfKinPhone || !resolvedDeceased.dateOfDeath)
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
 
     const admin = getSupabaseAdmin();
@@ -66,9 +80,10 @@ export async function POST(req: NextRequest) {
       booked_by: auth.id,
       slot_date: slotDate,
       slot_time: slotTime,
-      deceased_name: deceasedName,
-      contact_name: contactName,
-      contact_phone: contactPhone,
+      deceased_name: name,
+      contact_name: nextOfKin,
+      contact_phone: nextOfKinPhone,
+      deceased: resolvedDeceased,
       notes: notes || '',
       status: 'pending',
       expires_at: expiresAt,

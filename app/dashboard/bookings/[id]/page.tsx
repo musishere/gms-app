@@ -139,12 +139,29 @@ export default function BookingDetailPage() {
           </div>
         </div>
 
+        {/* Deceased info */}
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
+          <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-4">Deceased Information</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Field icon={User} label="Full Name" value={booking.deceasedName} />
+            {booking.deceased?.cnic && <Field icon={Hash} label="CNIC" value={booking.deceased.cnic} />}
+            {booking.deceased?.dateOfBirth && <Field icon={Calendar} label="Date of Birth" value={formatDate(booking.deceased.dateOfBirth)} />}
+            {booking.deceased?.dateOfDeath && <Field icon={Calendar} label="Date of Death" value={formatDate(booking.deceased.dateOfDeath)} />}
+            {booking.deceased?.causeOfDeath && <Field icon={StickyNote} label="Cause of Death" value={booking.deceased.causeOfDeath} />}
+            {booking.deceased?.religion && <Field icon={ShieldCheck} label="Religion" value={booking.deceased.religion} />}
+            {booking.deceased?.nationality && <Field icon={MapPin} label="Nationality" value={booking.deceased.nationality} />}
+            {booking.deceased?.address && <Field icon={Building2} label="Home Address" value={booking.deceased.address} />}
+          </div>
+        </div>
+
         {/* Contact info */}
         <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
-          <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-4">Contact Information</h2>
+          <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-4">Next of Kin</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field icon={User}  label="Contact Name"  value={booking.contactName} />
             <Field icon={Phone} label="Contact Phone" value={booking.contactPhone} />
+            {booking.deceased?.nextOfKinCNIC && <Field icon={Hash} label="CNIC" value={booking.deceased.nextOfKinCNIC} />}
+            {booking.deceased?.relationship && <Field icon={User} label="Relationship" value={booking.deceased.relationship} />}
           </div>
         </div>
 

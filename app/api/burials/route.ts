@@ -86,6 +86,15 @@ export async function POST(req: NextRequest) {
     const burialId = randomUUID();
     const qrCodeData = await QRCode.toDataURL(`/dashboard/graves?graveId=${graveId}`, { width: 200, margin: 1 });
 
+    let bookingUserId = auth.id;
+    if (bookingId) {
+      const { data: booking } = await admin.from('grave_bookings')
+        .select('booked_by')
+        .eq('id', bookingId)
+        .single();
+      if (booking?.booked_by) bookingUserId = booking.booked_by;
+    }
+
     const { data: burial, error: burialErr } = await admin.from('burials').insert({
       id: burialId,
       grave_id: graveId,
@@ -95,7 +104,7 @@ export async function POST(req: NextRequest) {
       conducted_by: conductedBy || '',
       status: 'confirmed',
       notes: notes || '',
-      booking_user_id: auth.id,
+      booking_user_id: bookingUserId,
       qr_code: qrCodeData,
       created_at: now,
       updated_at: now,
@@ -115,7 +124,7 @@ export async function POST(req: NextRequest) {
       id: randomUUID(),
       burial_id: burialId,
       grave_id: graveId,
-      user_id: auth.id,
+      user_id: bookingUserId,
       amount: paymentAmount,
       method: paymentMethod || 'cash',
       status: 'pending',
@@ -126,17 +135,26 @@ export async function POST(req: NextRequest) {
 
     if (bookingId) {
       await admin.from('grave_bookings').update({ status: 'converted' }).eq('id', bookingId);
+      await admin.from('notifications').insert({
+        id: randomUUID(),
+        user_id: bookingUserId,
+        title: 'Burial Confirmed',
+        message: `Burial of ${deceased.name} confirmed at grave ${grave.graveNumber} on ${burialDate} at ${burialTime}.`,
+        type: 'success',
+        read: false,
+        created_at: now,
+      });
+    } else {
+      await admin.from('notifications').insert({
+        id: randomUUID(),
+        user_id: auth.id,
+        title: 'Burial Confirmed',
+        message: `Burial of ${deceased.name} confirmed at grave ${grave.graveNumber} on ${burialDate} at ${burialTime}.`,
+        type: 'success',
+        read: false,
+        created_at: now,
+      });
     }
-
-    await admin.from('notifications').insert({
-      id: randomUUID(),
-      user_id: auth.id,
-      title: 'Burial Confirmed',
-      message: `Burial of ${deceased.name} confirmed at grave ${grave.graveNumber} on ${burialDate} at ${burialTime}.`,
-      type: 'success',
-      read: false,
-      created_at: now,
-    });
 
     return NextResponse.json({ burial, payment, grave: updatedGrave });
   } catch (e) { return errorResponse('Failed to create burial', e); }

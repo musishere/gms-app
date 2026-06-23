@@ -129,6 +129,7 @@ export interface GraveBooking {
   deceasedName: string;
   contactName: string;
   contactPhone: string;
+  deceased?: Omit<Deceased, 'id'>;
   notes?: string;
   status: BookingStatus;
   approvedBy?: string;

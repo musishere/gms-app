@@ -112,6 +112,7 @@ CREATE TABLE IF NOT EXISTS grave_bookings (
   deceased_name TEXT NOT NULL,
   contact_name  TEXT NOT NULL,
   contact_phone TEXT NOT NULL,
+  deceased      JSONB,
   notes         TEXT DEFAULT '',
   status        TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','approved','cancelled','converted')),
   approved_by   UUID REFERENCES profiles(id),

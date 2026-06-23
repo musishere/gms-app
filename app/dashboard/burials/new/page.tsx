@@ -2,39 +2,79 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { formatCurrency } from '@/lib/utils';
-import { Loader2, Zap, MapPin, CheckCircle2, AlertCircle, Clock } from 'lucide-react';
+import { useAuth } from '@/components/AuthProvider';
+import DeceasedInfoFields from '@/components/forms/DeceasedInfoFields';
+import {
+  DEFAULT_DECEASED_FORM,
+  deceasedFormToApi,
+  bookingToDeceasedForm,
+  isDeceasedFormValid,
+  type DeceasedFormData,
+} from '@/lib/deceased-form';
+import { Loader2, Zap, MapPin, CheckCircle2, AlertCircle, Clock, BookMarked } from 'lucide-react';
 
 interface Grave {
   id: string; graveNumber: string; section: string; size: string; price: number;
   status: string; latitude?: number; longitude?: number; reservedUntil?: string;
 }
 
+interface ApprovedBooking {
+  id: string;
+  deceasedName: string;
+  graveId: string;
+  slotDate: string;
+  slotTime: string;
+  notes?: string;
+  deceased?: Record<string, string | undefined>;
+  contactName?: string;
+  contactPhone?: string;
+  grave?: Grave;
+}
+
 const SUGGESTED_SLOTS = ['08:00', '10:00', '12:00', '14:00', '16:00'];
 
-const Input = ({ name, label, type = 'text', required = false, placeholder = '', form, onChange, hint }: any) => (
+const Input = ({ name, label, type = 'text', required = false, placeholder = '', form, onChange }: {
+  name: string; label: string; type?: string; required?: boolean; placeholder?: string;
+  form: Record<string, string>; onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => void;
+}) => (
   <div>
     <label className="block text-xs font-medium text-slate-400 mb-1">{label}{required && <span className="text-red-400">*</span>}</label>
     <input type={type} name={name} value={form[name]} onChange={onChange} required={required} placeholder={placeholder}
       className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 transition" />
-    {hint && <p className="text-xs text-slate-500 mt-1">{hint}</p>}
   </div>
 );
 
-const Select = ({ name, label, options, required = false, form, onChange }: any) => (
+const Select = ({ name, label, options, required = false, form, onChange }: {
+  name: string; label: string; options: [string, string][]; required?: boolean;
+  form: Record<string, string>; onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => void;
+}) => (
   <div>
     <label className="block text-xs font-medium text-slate-400 mb-1">{label}{required && <span className="text-red-400">*</span>}</label>
     <select name={name} value={form[name]} onChange={onChange} className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2.5 text-sm text-slate-300 focus:outline-none focus:border-emerald-500 transition">
-      {options.map(([v, l]: string[]) => <option key={v} value={v}>{l}</option>)}
+      {options.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
     </select>
   </div>
 );
 
+function applyBookingToForm(booking: ApprovedBooking) {
+  const deceasedFields = bookingToDeceasedForm(booking);
+  return {
+    ...DEFAULT_DECEASED_FORM,
+    ...deceasedFields,
+    burialDate: booking.slotDate,
+    burialTime: booking.slotTime,
+    notes: booking.notes || '',
+  };
+}
+
 export default function NewBurialPage() {
   const router = useRouter();
   const sp = useSearchParams();
+  const { user } = useAuth();
+  const isStaff = ['admin', 'staff'].includes(user?.role ?? '');
+
   const preGraveId = sp.get('graveId');
-  const bookingId = sp.get('bookingId');
-  const preDeceasedName = sp.get('deceasedName');
+  const urlBookingId = sp.get('bookingId');
 
   const [step, setStep] = useState(1);
   const [graves, setGraves] = useState<Grave[]>([]);
@@ -47,23 +87,46 @@ export default function NewBurialPage() {
   const [reservedUntil, setReservedUntil] = useState<string | null>(null);
   const [reservationTimer, setReservationTimer] = useState('');
 
+  const [approvedBookings, setApprovedBookings] = useState<ApprovedBooking[]>([]);
+  const [selectedBookingId, setSelectedBookingId] = useState(urlBookingId || '');
+
   const [form, setForm] = useState({
-    deceasedName: preDeceasedName || '', deceasedCNIC: '', dateOfBirth: '', dateOfDeath: '', causeOfDeath: '',
-    religion: 'Islam', nationality: 'Pakistani', address: '',
-    nextOfKin: '', nextOfKinPhone: '', nextOfKinCNIC: '', relationship: '',
+    ...DEFAULT_DECEASED_FORM,
     burialDate: new Date().toISOString().slice(0, 10),
-    burialTime: '10:00', conductedBy: '', notes: '',
-    paymentMethod: 'cash', graveSize: 'standard', graveSection: '',
+    burialTime: '10:00',
+    conductedBy: '',
+    notes: '',
+    paymentMethod: 'cash',
+    graveSize: 'standard',
+    graveSection: '',
   });
 
   const h = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
     setForm(f => ({ ...f, [e.target.name]: e.target.value }));
 
+  const loadBooking = useCallback(async (id: string) => {
+    const r = await fetch(`/api/bookings/${id}`);
+    if (!r.ok) return;
+    const d = await r.json();
+    const booking = d.booking as ApprovedBooking;
+    if (!booking) return;
+
+    setForm(f => ({ ...f, ...applyBookingToForm(booking) }));
+    if (d.grave) setSelectedGrave(d.grave);
+    else if (booking.grave) setSelectedGrave(booking.grave);
+    else if (booking.graveId) {
+      const gRes = await fetch('/api/graves');
+      const gData = await gRes.json();
+      const g = (gData.graves ?? []).find((x: Grave) => x.id === booking.graveId);
+      if (g) setSelectedGrave(g);
+    }
+  }, []);
+
   const checkSlotConflict = useCallback(async (date: string, time: string) => {
     const month = date.slice(0, 7);
     const r = await fetch(`/api/burials?month=${month}`);
     const d = await r.json();
-    const conflict = (d.burials ?? []).some((b: any) =>
+    const conflict = (d.burials ?? []).some((b: { burialDate: string; burialTime: string; status: string }) =>
       b.burialDate === date && b.burialTime === time && b.status !== 'cancelled'
     );
     setSlotConflict(conflict);
@@ -77,34 +140,30 @@ export default function NewBurialPage() {
     fetch('/api/graves?status=available').then(r => r.json()).then(d => {
       const available = d.graves ?? [];
       setGraves(available);
-      if (preGraveId) {
+      if (preGraveId && !selectedBookingId) {
         const g = available.find((g: Grave) => g.id === preGraveId);
         if (g) setSelectedGrave(g);
         else {
-          fetch(`/api/graves`).then(r2 => r2.json()).then(d2 => {
-            const all = d2.graves ?? [];
-            const reserved = all.find((g: Grave) => g.id === preGraveId && g.status === 'reserved');
+          fetch('/api/graves').then(r2 => r2.json()).then(d2 => {
+            const reserved = (d2.graves ?? []).find((g: Grave) => g.id === preGraveId && g.status === 'reserved');
             if (reserved) setSelectedGrave(reserved);
           });
         }
       }
     });
-  }, [preGraveId]);
+  }, [preGraveId, selectedBookingId]);
 
   useEffect(() => {
-    if (!bookingId) return;
-    fetch('/api/bookings').then(r => r.json()).then(d => {
-      const booking = (d.bookings ?? []).find((b: any) => b.id === bookingId);
-      if (booking) {
-        setForm(f => ({
-          ...f,
-          deceasedName: booking.deceasedName || f.deceasedName,
-          burialDate: booking.slotDate || f.burialDate,
-          burialTime: booking.slotTime || f.burialTime,
-        }));
-      }
+    if (!isStaff) return;
+    fetch('/api/bookings?status=approved').then(r => r.json()).then(d => {
+      setApprovedBookings(d.bookings ?? []);
     });
-  }, [bookingId]);
+  }, [isStaff]);
+
+  useEffect(() => {
+    if (!selectedBookingId) return;
+    loadBooking(selectedBookingId);
+  }, [selectedBookingId, loadBooking]);
 
   useEffect(() => {
     if (!reservedUntil) return;
@@ -119,6 +178,23 @@ export default function NewBurialPage() {
     const id = setInterval(tick, 1000);
     return () => clearInterval(id);
   }, [reservedUntil]);
+
+  const handleBookingSelect = (id: string) => {
+    setSelectedBookingId(id);
+    if (!id) {
+      setForm(f => ({
+        ...DEFAULT_DECEASED_FORM,
+        burialDate: new Date().toISOString().slice(0, 10),
+        burialTime: '10:00',
+        conductedBy: '',
+        notes: '',
+        paymentMethod: 'cash',
+        graveSize: 'standard',
+        graveSection: '',
+      }));
+      setSelectedGrave(null);
+    }
+  };
 
   const autoAllocate = async () => {
     setAllocating(true); setError('');
@@ -159,26 +235,29 @@ export default function NewBurialPage() {
     if (slotConflict) { setError('This burial slot is already taken'); return; }
     setSubmitting(true); setError('');
     try {
+      const deceasedData = form as DeceasedFormData & { burialDate: string; burialTime: string; conductedBy: string; notes: string; paymentMethod: string };
       const r = await fetch('/api/burials', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           graveId: selectedGrave.id,
-          bookingId: bookingId || undefined,
-          deceased: {
-            name: form.deceasedName, cnic: form.deceasedCNIC, dateOfBirth: form.dateOfBirth,
-            dateOfDeath: form.dateOfDeath, causeOfDeath: form.causeOfDeath, religion: form.religion,
-            nationality: form.nationality, address: form.address, nextOfKin: form.nextOfKin,
-            nextOfKinPhone: form.nextOfKinPhone, nextOfKinCNIC: form.nextOfKinCNIC, relationship: form.relationship,
-          },
-          burialDate: form.burialDate, burialTime: form.burialTime, conductedBy: form.conductedBy, notes: form.notes,
-          paymentMethod: form.paymentMethod, amount: selectedGrave.price,
+          bookingId: selectedBookingId || undefined,
+          deceased: deceasedFormToApi(deceasedData),
+          burialDate: form.burialDate,
+          burialTime: form.burialTime,
+          conductedBy: form.conductedBy,
+          notes: form.notes,
+          paymentMethod: form.paymentMethod,
+          amount: selectedGrave.price,
         }),
       });
       const d = await r.json();
       if (!r.ok) throw new Error(d.error);
       setSuccess(true);
       setTimeout(() => router.push(`/dashboard/burials/${d.burial.id}`), 1500);
-    } catch (err: any) { setError(err.message); setSubmitting(false); }
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to create burial');
+      setSubmitting(false);
+    }
   };
 
   if (success) return (
@@ -196,12 +275,33 @@ export default function NewBurialPage() {
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-white">Record New Burial</h1>
         <p className="text-slate-400 text-sm mt-1">Complete all required fields to register a burial</p>
-        {bookingId && (
+        {selectedBookingId && (
           <p className="text-xs text-emerald-400 mt-2 flex items-center gap-1">
-            <CheckCircle2 className="w-3.5 h-3.5" /> Converting approved booking
+            <CheckCircle2 className="w-3.5 h-3.5" /> Converting approved booking — form auto-filled from user data
           </p>
         )}
       </div>
+
+      {isStaff && (
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 mb-6">
+          <label className="block text-xs font-medium text-slate-400 mb-2">
+            <BookMarked className="w-3.5 h-3.5 inline mr-1.5 -mt-0.5" />
+            Select Approved Booking (auto-fills form)
+          </label>
+          <select
+            value={selectedBookingId}
+            onChange={e => handleBookingSelect(e.target.value)}
+            className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2.5 text-sm text-slate-300 focus:outline-none focus:border-emerald-500 transition"
+          >
+            <option value="">— Manual entry (no booking) —</option>
+            {approvedBookings.map(b => (
+              <option key={b.id} value={b.id}>
+                {b.deceasedName} · {b.slotDate} {b.slotTime} · Grave {b.grave?.graveNumber ?? b.graveId?.slice(0, 8)}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
       <div className="flex gap-2 mb-6">
         {[1, 2, 3].map(s => (
@@ -216,28 +316,10 @@ export default function NewBurialPage() {
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
         {step === 1 && (
           <div className="space-y-4">
-            <h2 className="text-sm font-semibold text-slate-200 mb-4">Deceased Person Information</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Input form={form} onChange={h} name="deceasedName" label="Full Name" required />
-              <Input form={form} onChange={h} name="deceasedCNIC" label="CNIC (if available)" placeholder="00000-0000000-0" hint="Format: XXXXX-XXXXXXX-X" />
-              <Input form={form} onChange={h} name="dateOfBirth" label="Date of Birth" type="date" />
-              <Input form={form} onChange={h} name="dateOfDeath" label="Date of Death" type="date" required />
-              <Input form={form} onChange={h} name="causeOfDeath" label="Cause of Death" />
-              <Select form={form} onChange={h} name="religion" label="Religion" options={[['Islam', 'Islam'], ['Christianity', 'Christianity'], ['Hinduism', 'Hinduism'], ['Other', 'Other']]} />
-              <Input form={form} onChange={h} name="nationality" label="Nationality" />
-              <Input form={form} onChange={h} name="address" label="Home Address" />
-            </div>
-            <hr className="border-slate-700 my-4" />
-            <h3 className="text-sm font-semibold text-slate-200">Next of Kin Details</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Input form={form} onChange={h} name="nextOfKin" label="Next of Kin Name" required />
-              <Input form={form} onChange={h} name="nextOfKinPhone" label="Phone Number" required placeholder="+92 300 0000000" />
-              <Input form={form} onChange={h} name="nextOfKinCNIC" label="CNIC" placeholder="00000-0000000-0" />
-              <Input form={form} onChange={h} name="relationship" label="Relationship to Deceased" placeholder="Son, Daughter, Spouse…" />
-            </div>
+            <DeceasedInfoFields form={form as DeceasedFormData} onChange={h} />
             <div className="flex justify-end mt-4">
               <button onClick={() => {
-                if (!form.deceasedName || !form.dateOfDeath || !form.nextOfKin || !form.nextOfKinPhone) {
+                if (!isDeceasedFormValid(form as DeceasedFormData)) {
                   setError('Fill all required fields'); return;
                 }
                 setError(''); setStep(2);
@@ -253,7 +335,7 @@ export default function NewBurialPage() {
               <Select form={form} onChange={h} name="graveSize" label="Preferred Size" options={[['standard', 'Standard'], ['child', 'Child'], ['double', 'Double'], ['vip', 'VIP']]} />
               <Select form={form} onChange={h} name="graveSection" label="Preferred Section" options={[['', 'Any Section'], ['A', 'Section A'], ['B', 'Section B'], ['C', 'Section C'], ['D', 'Section D'], ['VIP', 'Section VIP']]} />
               <div className="flex items-end">
-                <button onClick={autoAllocate} disabled={allocating} className="w-full flex items-center justify-center gap-2 bg-blue-500 hover:bg-blue-400 disabled:opacity-50 text-white font-semibold py-2.5 rounded-lg text-sm transition">
+                <button onClick={autoAllocate} disabled={allocating || !!selectedBookingId} className="w-full flex items-center justify-center gap-2 bg-blue-500 hover:bg-blue-400 disabled:opacity-50 text-white font-semibold py-2.5 rounded-lg text-sm transition">
                   {allocating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />} Auto-Allocate
                 </button>
               </div>
@@ -275,10 +357,12 @@ export default function NewBurialPage() {
                     )}
                   </div>
                   <div className="flex gap-2">
-                    {selectedGrave.status === 'reserved' && (
+                    {selectedGrave.status === 'reserved' && !selectedBookingId && (
                       <button onClick={releaseReservation} className="text-xs text-orange-400 hover:text-orange-300">Release</button>
                     )}
-                    <button onClick={() => { setSelectedGrave(null); setReservedUntil(null); }} className="text-slate-400 hover:text-white text-xs">Change</button>
+                    {!selectedBookingId && (
+                      <button onClick={() => { setSelectedGrave(null); setReservedUntil(null); }} className="text-slate-400 hover:text-white text-xs">Change</button>
+                    )}
                   </div>
                 </div>
               </div>

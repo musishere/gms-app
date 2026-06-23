@@ -18,7 +18,7 @@ export const MAINTENANCE_COLS =
   'id, graveId:grave_id, graveNumber:grave_number, section, title, description, priority, status, reportedBy:reported_by, assignedTo:assigned_to, resolvedAt:resolved_at, createdAt:created_at, updatedAt:updated_at';
 
 export const BOOKING_COLS =
-  'id, graveyardId:graveyard_id, graveId:grave_id, bookedBy:booked_by, slotDate:slot_date, slotTime:slot_time, deceasedName:deceased_name, contactName:contact_name, contactPhone:contact_phone, notes, status, approvedBy:approved_by, approvedAt:approved_at, expiresAt:expires_at, createdAt:created_at';
+  'id, graveyardId:graveyard_id, graveId:grave_id, bookedBy:booked_by, slotDate:slot_date, slotTime:slot_time, deceasedName:deceased_name, contactName:contact_name, contactPhone:contact_phone, deceased, notes, status, approvedBy:approved_by, approvedAt:approved_at, expiresAt:expires_at, createdAt:created_at';
 
 export const NOTIFICATION_COLS =
   'id, userId:user_id, title, message, type, read, createdAt:created_at';

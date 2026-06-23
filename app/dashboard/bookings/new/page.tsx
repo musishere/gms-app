@@ -27,6 +27,13 @@ import {
 } from "@/lib/graveyards";
 import type { City, Graveyard } from "@/lib/graveyards";
 import type { GraveyardWithStats } from "@/components/graves/BookingFlowMap";
+import DeceasedInfoFields from "@/components/forms/DeceasedInfoFields";
+import {
+  DEFAULT_DECEASED_FORM,
+  deceasedFormToApi,
+  getDeceasedValidationErrors,
+  type DeceasedFormData,
+} from "@/lib/deceased-form";
 
 const BookingFlowMap = dynamic(
   () => import("@/components/graves/BookingFlowMap"),
@@ -203,10 +210,8 @@ export default function NewBookingPage() {
   const [form, setForm] = useState({
     slotDate: new Date(Date.now() + 86400000).toISOString().slice(0, 10),
     slotTime: "10:00",
-    deceasedName: "",
-    contactName: "",
-    contactPhone: "",
     notes: "",
+    ...DEFAULT_DECEASED_FORM,
   });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -364,9 +369,20 @@ export default function NewBookingPage() {
     graveyardsWithStats.find((g) => g.id === selectedGraveyardId) ??
     cityGraveyards.find((g) => g.id === selectedGraveyardId);
 
+  const missingFields = getDeceasedValidationErrors(form);
+  const canSubmit = !!selectedGrave && missingFields.length === 0 && !submitting;
+
   // ── Submit booking → open payment modal ───────────────────────────────────
   const submit = async () => {
-    if (!selectedGrave) return;
+    if (!selectedGrave) {
+      setError("Please select a grave before submitting.");
+      return;
+    }
+    const missing = getDeceasedValidationErrors(form);
+    if (missing.length > 0) {
+      setError(`Please complete required fields: ${missing.join(", ")}`);
+      return;
+    }
     setSubmitting(true);
     setError("");
     try {
@@ -376,7 +392,10 @@ export default function NewBookingPage() {
         body: JSON.stringify({
           graveId: selectedGrave.id,
           graveyardId: selectedGraveyardId,
-          ...form,
+          slotDate: form.slotDate,
+          slotTime: form.slotTime,
+          notes: form.notes,
+          deceased: deceasedFormToApi(form as DeceasedFormData),
         }),
       });
       const d = await r.json();
@@ -906,44 +925,13 @@ export default function NewBookingPage() {
                   </select>
                 </Field>
               </div>
-              <Field label="Deceased / Reserved For" required>
-                <input
-                  type="text"
-                  name="deceasedName"
-                  value={form.deceasedName}
-                  onChange={h}
-                  placeholder="Full name of the deceased"
-                  className={inputCls}
-                />
-              </Field>
+            </div>
+
+            <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
+              <DeceasedInfoFields form={form as DeceasedFormData} onChange={h} />
             </div>
 
             <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-4">
-              <h2 className="text-sm font-semibold text-white">
-                Contact Information
-              </h2>
-              <div className="grid sm:grid-cols-2 gap-4">
-                <Field label="Contact Person" required>
-                  <input
-                    type="text"
-                    name="contactName"
-                    value={form.contactName}
-                    onChange={h}
-                    placeholder="Next of kin / family member"
-                    className={inputCls}
-                  />
-                </Field>
-                <Field label="Phone Number" required>
-                  <input
-                    type="tel"
-                    name="contactPhone"
-                    value={form.contactPhone}
-                    onChange={h}
-                    placeholder="03xx-xxxxxxx"
-                    className={inputCls}
-                  />
-                </Field>
-              </div>
               <Field label="Notes">
                 <textarea
                   name="notes"
@@ -962,6 +950,17 @@ export default function NewBookingPage() {
               </div>
             )}
 
+            {!canSubmit && !submitting && missingFields.length > 0 && (
+              <p className="text-xs text-amber-400/90">
+                Required: {missingFields.join(", ")}
+              </p>
+            )}
+            {!selectedGrave && (
+              <p className="text-xs text-amber-400/90">
+                No grave selected — go back and choose a slot first.
+              </p>
+            )}
+
             <div className="flex gap-3 justify-between">
               <button
                 onClick={() => {
@@ -973,13 +972,9 @@ export default function NewBookingPage() {
                 <ArrowLeft className="w-4 h-4" /> Back
               </button>
               <button
+                type="button"
                 onClick={submit}
-                disabled={
-                  submitting ||
-                  !form.deceasedName ||
-                  !form.contactName ||
-                  !form.contactPhone
-                }
+                disabled={submitting}
                 className="flex items-center gap-2 px-6 py-2.5 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-lg transition"
               >
                 {submitting ? (
