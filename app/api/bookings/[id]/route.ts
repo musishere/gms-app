@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthUser } from '@/lib/auth';
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
-import { BOOKING_COLS, GRAVE_COLS } from '@/lib/supabase';
+import { GRAVE_COLS } from '@/lib/supabase';
+import { selectBookingById, updateBooking } from '@/lib/booking-db';
 import { errorResponse } from '@/lib/error-handler';
 import { randomUUID } from 'crypto';
 
@@ -13,9 +14,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     const { id } = await params;
     const admin = getSupabaseAdmin();
 
-    const { data: booking, error } = await admin
-      .from('grave_bookings').select(BOOKING_COLS).eq('id', id).single();
-    if (error || !booking) return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
+    const booking = await selectBookingById(admin, id);
+    if (!booking) return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
 
     const b = booking as Record<string, unknown>;
     if (auth.role === 'family' && b.bookedBy !== auth.id)
@@ -35,13 +35,11 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const { status, notes } = await req.json();
     const admin = getSupabaseAdmin();
 
-    const { data: booking, error: fetchErr } = await admin
-      .from('grave_bookings').select(BOOKING_COLS).eq('id', id).single();
-    if (fetchErr || !booking) return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
+    const booking = await selectBookingById(admin, id);
+    if (!booking) return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
 
     const b = booking as Record<string, unknown>;
 
-    // Family can only cancel their own pending bookings
     if (auth.role === 'family') {
       if (b.bookedBy !== auth.id) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
       if (status !== 'cancelled') return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
@@ -56,10 +54,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       updates.approved_by = auth.id;
       updates.approved_at = now;
 
-      // Flip grave to reserved
       await admin.from('graves').update({ status: 'reserved' }).eq('id', b.graveId);
 
-      // Notify booker
       await admin.from('notifications').insert({
         id: randomUUID(),
         user_id: b.bookedBy,
@@ -72,14 +68,12 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     }
 
     if (status === 'cancelled') {
-      // Restore grave to available if it was reserved by this booking
       const { data: grave } = await admin.from('graves').select(GRAVE_COLS).eq('id', b.graveId).single();
       if (grave && String(grave.status) === 'reserved') {
         await admin.from('graves').update({ status: 'available' }).eq('id', b.graveId);
       }
 
       if (b.bookedBy !== auth.id) {
-        // Notify booker of cancellation by staff/admin
         await admin.from('notifications').insert({
           id: randomUUID(),
           user_id: b.bookedBy,
@@ -92,10 +86,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       }
     }
 
-    const { data: updated, error } = await admin
-      .from('grave_bookings').update(updates).eq('id', id).select(BOOKING_COLS).single();
-    if (error) throw error;
-
+    const updated = await updateBooking(admin, id, updates);
     return NextResponse.json({ booking: updated });
   } catch (e) { return errorResponse('Failed to update booking', e); }
 }
@@ -108,9 +99,8 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     const { id } = await params;
     const admin = getSupabaseAdmin();
 
-    const { data: booking, error: fetchErr } = await admin
-      .from('grave_bookings').select(BOOKING_COLS).eq('id', id).single();
-    if (fetchErr || !booking) return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
+    const booking = await selectBookingById(admin, id);
+    if (!booking) return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
 
     const b = booking as Record<string, unknown>;
     if (auth.role === 'family' && b.bookedBy !== auth.id)
