@@ -4392,11 +4392,11 @@
       "burialDate": "2026-05-08",
       "burialTime": "10:00",
       "conductedBy": "imam aliyaan",
-      "status": "confirmed",
+      "status": "cancelled",
       "notes": "bara changa bnda si",
       "bookingUserId": "admin-001",
       "createdAt": "2026-05-08T09:19:23.800Z",
-      "updatedAt": "2026-05-08T09:19:23.800Z"
+      "updatedAt": "2026-05-11T13:22:19.315Z"
     }
   ],
   "payments": [

@@ -69,6 +69,10 @@ export function bookingToDeceasedForm(booking: {
   deceasedName?: string;
   contactName?: string;
   contactPhone?: string;
+  deceasedCnic?: string;
+  dateOfDeath?: string;
+  causeOfDeath?: string;
+  address?: string;
   deceased?: Record<string, string | undefined> | null;
 }): Partial<DeceasedFormData> {
   const fromJson = deceasedApiToForm(booking.deceased);
@@ -76,13 +80,13 @@ export function bookingToDeceasedForm(booking: {
     deceasedName: fromJson.deceasedName || booking.deceasedName || '',
     nextOfKin: fromJson.nextOfKin || booking.contactName || '',
     nextOfKinPhone: fromJson.nextOfKinPhone || booking.contactPhone || '',
-    deceasedCNIC: fromJson.deceasedCNIC || '',
+    deceasedCNIC: fromJson.deceasedCNIC || booking.deceasedCnic || '',
     dateOfBirth: fromJson.dateOfBirth || '',
-    dateOfDeath: fromJson.dateOfDeath || '',
-    causeOfDeath: fromJson.causeOfDeath || '',
+    dateOfDeath: fromJson.dateOfDeath || booking.dateOfDeath || '',
+    causeOfDeath: fromJson.causeOfDeath || booking.causeOfDeath || '',
     religion: fromJson.religion || 'Islam',
     nationality: fromJson.nationality || 'Pakistani',
-    address: fromJson.address || '',
+    address: fromJson.address || booking.address || '',
     nextOfKinCNIC: fromJson.nextOfKinCNIC || '',
     relationship: fromJson.relationship || '',
   };

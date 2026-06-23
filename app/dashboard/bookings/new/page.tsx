@@ -215,6 +215,7 @@ export default function NewBookingPage() {
   });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [clientValidationError, setClientValidationError] = useState('');
 
   // ── Payment modal ──────────────────────────────────────────────────────────
   const [showPayment, setShowPayment] = useState(false);
@@ -233,6 +234,23 @@ export default function NewBookingPage() {
       HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
     >,
   ) => setForm((f) => ({ ...f, [e.target.name]: e.target.value }));
+
+  // client-side validation helpers
+  const validateCNIC = (val: string) => {
+    if (!val) return true;
+    const norm = val.replace(/\s+/g, '');
+    return /^\d{5}-?\d{7}-?\d{1}$/.test(norm);
+  };
+
+  const validateFormClient = () => {
+    if (!validateCNIC(form.deceasedCNIC)) return 'CNIC format invalid (expected 12345-1234567-1)';
+    if (form.dateOfDeath) {
+      const d = new Date(form.dateOfDeath);
+      if (Number.isNaN(d.getTime())) return 'Invalid Date of Death';
+      if (d.getTime() > Date.now()) return 'Date of Death cannot be in the future';
+    }
+    return '';
+  };
 
   // ── Fetch all graveyards with availability stats ───────────────────────────
   useEffect(() => {
@@ -383,6 +401,9 @@ export default function NewBookingPage() {
       setError(`Please complete required fields: ${missing.join(", ")}`);
       return;
     }
+    const clientErr = validateFormClient();
+    if (clientErr) { setClientValidationError(clientErr); return; }
+    setClientValidationError('');
     setSubmitting(true);
     setError("");
     try {
@@ -949,6 +970,11 @@ export default function NewBookingPage() {
                 <AlertCircle className="w-4 h-4 shrink-0" /> {error}
               </div>
             )}
+              {clientValidationError && (
+                <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/30 rounded-lg px-4 py-3 text-red-400 text-sm">
+                  <AlertCircle className="w-4 h-4 shrink-0" /> {clientValidationError}
+                </div>
+              )}
 
             {!canSubmit && !submitting && missingFields.length > 0 && (
               <p className="text-xs text-amber-400/90">
