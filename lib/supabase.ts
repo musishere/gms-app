@@ -1,5 +1,6 @@
 import { createServerClient } from '@supabase/ssr';
 import type { NextRequest } from 'next/server';
+import { assertSupabasePublicConfig } from './supabase-env';
 
 // Column select strings using PostgREST aliasing (camelCase alias: snake_case column)
 export const GRAVE_COLS =
@@ -29,12 +30,13 @@ export const NOTIFICATION_COLS =
 // Creates an anon-key server client that reads/sets cookies from the request.
 // Returns the client and a cookiesToSet array — apply these to your response.
 export function createSupabaseClient(request: NextRequest) {
+  const { url, anonKey } = assertSupabasePublicConfig();
   const cookiesToSet: Array<{ name: string; value: string; options: Record<string, unknown> }> = [];
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const supabase = createServerClient<any>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    url,
+    anonKey,
     {
       cookies: {
         getAll() { return request.cookies.getAll(); },

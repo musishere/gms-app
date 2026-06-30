@@ -21,9 +21,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => { refreshUser().finally(() => setLoading(false)); }, []);
 
   const login = async (email: string, password: string) => {
-    const r = await fetch('/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password }) });
-    const d = await r.json();
-    if (!r.ok) throw new Error(d.error || 'Login failed');
+    let r: Response;
+    try {
+      r = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+    } catch {
+      throw new Error('Network error — could not reach the server. Check your connection and try again.');
+    }
+
+    let d: { error?: string; message?: string };
+    try {
+      d = await r.json();
+    } catch {
+      throw new Error('Unexpected server response. Try again or contact support.');
+    }
+
+    if (!r.ok) throw new Error(d.error || d.message || 'Login failed');
     setUser(d.user);
     router.push('/dashboard');
   };
