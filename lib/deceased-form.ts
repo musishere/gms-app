@@ -93,7 +93,7 @@ export function bookingToDeceasedForm(booking: {
 }
 
 export function getDeceasedValidationErrors(
-  form: Partial<DeceasedFormData> & Record<string, unknown>,
+  form: Partial<DeceasedFormData>,
 ): string[] {
   const missing: string[] = [];
   if (!String(form.deceasedName ?? '').trim()) missing.push('Full Name');
@@ -104,7 +104,7 @@ export function getDeceasedValidationErrors(
 }
 
 export function isDeceasedFormValid(
-  form: Partial<DeceasedFormData> & Record<string, unknown>,
+  form: Partial<DeceasedFormData>,
 ): boolean {
   return getDeceasedValidationErrors(form).length === 0;
 }
