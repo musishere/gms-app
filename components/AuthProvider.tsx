@@ -32,7 +32,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       throw new Error('Network error — could not reach the server. Check your connection and try again.');
     }
 
-    let d: { error?: string; message?: string };
+    let d: { error?: string; message?: string; user?: User };
     try {
       d = await r.json();
     } catch {
@@ -40,6 +40,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     if (!r.ok) throw new Error(d.error || d.message || 'Login failed');
+    if (!d.user) throw new Error('Login succeeded but no user was returned.');
     setUser(d.user);
     router.push('/dashboard');
   };
